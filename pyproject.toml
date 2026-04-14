@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools >= 77.0.3", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ssm-layer-sharing"
+dynamic = ["version"]
+requires-python = ">= 3.12"
+authors = [
+  {name = "Klymentiev Maksym", email = "dadmon1901@gmail.com"},
+]
+description = "Core machine learning engine for interactive image and video colorization."
+readme = "README.md"
+license = "MIT"
+dependencies = [
+    "numpy",
+    "scipy",
+
+    "tqdm",
+    "matplotlib",
+
+    "torch",
+    # "torchvision",
+    # "mamba-ssm",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-benchmark"
+]
+
+[project.urls]
+Repository = "https://github.com/KlymentievMaksym/interactive-colorization-engine.git"
+Issues = "https://github.com/KlymentievMaksym/interactive-colorization-engine/issues"
+
+# [project.scripts]
+# train = "ssm_sharing.train:train_command"
+
+# [project.entry-points."spam.magical"]
+# tomatoes = "spam:main_tomatoes"
+
+[tool.setuptools_scm]
+root = "../.."
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
