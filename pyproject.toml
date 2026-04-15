@@ -41,7 +41,8 @@ Issues = "https://github.com/KlymentievMaksym/interactive-colorization-engine/is
 # tomatoes = "spam:main_tomatoes"
 
 [tool.setuptools_scm]
-root = "../.."
+root = "."
+fallback_version = "v1.0.0.NoGit"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
