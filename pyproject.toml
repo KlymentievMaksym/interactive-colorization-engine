@@ -3,7 +3,7 @@ requires = ["setuptools >= 77.0.3", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ssm-layer-sharing"
+name = "interactive-colorization-engine"
 dynamic = ["version"]
 requires-python = ">= 3.12"
 authors = [
