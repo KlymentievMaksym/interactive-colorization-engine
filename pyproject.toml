@@ -20,8 +20,11 @@ dependencies = [
     "matplotlib",
 
     "torch",
-    # "torchvision",
-    # "mamba-ssm",
+    "albumentations",
+    "opencv-python",
+
+    "torchvision",
+    "mamba-ssm",
 ]
 
 [project.optional-dependencies]
