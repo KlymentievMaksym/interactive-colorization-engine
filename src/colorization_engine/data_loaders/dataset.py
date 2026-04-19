@@ -1,6 +1,9 @@
+from albumentations import Compose
 import cv2
 import numpy as np
 from pathlib import Path
+import numpy as np
+import torch
 from torch.utils.data import Dataset
 
 VALID_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
@@ -10,7 +13,7 @@ def _basic_prepare(path: str | Path, color_to: int):
     Reads image from path, converts it to needed color system and returns image
     """
     path_str = str(path)
-    _img = cv2.imread(path_str)
+    _img = cv2.imread(path_str, cv2.IMREAD_COLOR)
 
     if _img is None:
         raise ValueError(f"[ERROR] Can't read: {path_str}")
@@ -18,18 +21,40 @@ def _basic_prepare(path: str | Path, color_to: int):
     _img = cv2.cvtColor(_img, color_to)
     return _img
 
-def _apply_transform(transform, input, target):
+def __rgb_to_lab(image_rgb: np.ndarray):
+    """Returns cv2 LAB format in float32 from cv2 RGB uint8"""
+    img_float = image_rgb.astype(np.float32) / 255.0
+    return cv2.cvtColor(img_float, cv2.COLOR_RGB2LAB)
+
+def _l_to_l_norm(l: np.ndarray):
+    return torch.from_numpy(l / 50.0 - 1.0).unsqueeze(0).float()
+
+def _ab_to_ab_norm(ab: np.ndarray):
+    return torch.from_numpy(ab / 110.0).permute(2, 0, 1).float()
+
+def _rgb_to_lab_norm(image_rgb: np.ndarray):
+    img_lab = __rgb_to_lab(image_rgb)
+    return _l_to_l_norm(img_lab[:, :, 0]), _ab_to_ab_norm(img_lab[:, :, 1:])
+
+def _rgb_to_l_norm(image_rgb: np.ndarray):
+    img_lab = __rgb_to_lab(image_rgb)
+    return _l_to_l_norm(img_lab[:, :, 0])
+
+def _rgb_to_ab_norm(image_rgb: np.ndarray):
+    img_lab = __rgb_to_lab(image_rgb)
+    return _ab_to_ab_norm(img_lab[:, :, 1:])
+
+
+def _apply_transform(transform: Compose | None, input: np.ndarray, target: np.ndarray | None = None):
     """
     Applies tranform if exists and returns dict of input and target
     """
-    if transform:
-        transformed = transform(image=input, target=target)
-        tensor_gray = transformed['image']
-        tensor_color = transformed['target']
-    else:
-        tensor_gray, tensor_color = input, target
+    if transform is None:
+        return {"input": input, "target": target}
 
-    return {"input": tensor_gray, "target": tensor_color}
+    transformed = transform(image=input, target=target)
+    
+    return {"input": transformed['image'], "target": target if target is None else transformed['target']}
 
 class PairedDataset(Dataset):
     """
@@ -67,7 +92,12 @@ class PairedDataset(Dataset):
         img_input = _basic_prepare(pair["input"], cv2.COLOR_BGR2RGB)
         img_target = _basic_prepare(pair["target"], cv2.COLOR_BGR2RGB)
 
-        return _apply_transform(self.transform, img_input, img_target)
+        tensor_dict = _apply_transform(self.transform, img_input, img_target)
+
+        tensor_input = _rgb_to_l_norm(tensor_dict["input"])
+        tensor_target = _rgb_to_ab_norm(tensor_dict["target"])
+
+        return {"input": tensor_input, "target": tensor_target}
 
 
 class SingleTargetFolderDataset(Dataset):
@@ -95,7 +125,10 @@ class SingleTargetFolderDataset(Dataset):
         path = self.images[idx]
 
         img_target = _basic_prepare(path, cv2.COLOR_BGR2RGB)
-        img_input = cv2.cvtColor(img_target, cv2.COLOR_RGB2GRAY)
-        img_input = cv2.cvtColor(img_input, cv2.COLOR_GRAY2RGB)
 
-        return _apply_transform(self.transform, img_input, img_target)
+        tensor_dict = _apply_transform(self.transform, img_target)
+
+        img_input = tensor_dict["input"]
+        intar = _rgb_to_lab_norm(img_input)
+
+        return {"input": intar[0], "target": intar[1]}
