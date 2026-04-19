@@ -24,6 +24,7 @@ dependencies = [
     "opencv-python",
 
     "torchvision",
+    "torchmetrics",
     "mamba-ssm",
 ]
 
