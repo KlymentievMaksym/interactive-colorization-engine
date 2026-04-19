@@ -6,14 +6,15 @@ from torch.utils.data import DataLoader
 # Імпортуємо наші модулі
 from colorization_engine.data_loaders.dataset import PairedDataset, SingleTargetFolderDataset
 from colorization_engine.data_loaders.transforms import get_transforms
-from colorization_engine.models.my_colorization import Colorization
+# from colorization_engine.models.my_colorization import Colorization
+from colorization_engine.models.mamba2 import MambaWrapper2
 from colorization_engine.training.losses import ColorizationLoss
 from colorization_engine.training.trainer import ColorizationTrainer
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Тренування моделі колоризації на базі Mamba-SSM")
     parser.add_argument("--data_dir", type=str, required=True, help="Шлях до папки з даними")
-    parser.add_argument("--weights", type=str, default="checkpoints/latest_model.pth", help="Шлях до ваг моделі")
+    parser.add_argument("--weights", type=str or None, default=None, help="Шлях до ваг моделі")  #"checkpoints/latest_model.pth"
     parser.add_argument("--epochs", type=int, default=50, help="Кількість епох")
     parser.add_argument("--batch_size", type=int, default=8, help="Розмір батчу")
     parser.add_argument("--d_model", type=int, default=256, help="Розмір прихованого стану")
@@ -39,10 +40,10 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
     
     print("[INFO] Ініціалізація моделі...")
-    model = Colorization(d_model=args.d_model, layers=6, blocks=2)
-    if os.path.exists(args.weights):
+    # model = Colorization(d_model=args.d_model, layers=6, blocks=2)
+    model = MambaWrapper2(d_model=args.d_model, layers=6, blocks=2)
+    if args.weights and os.path.exists(args.weights):
         checkpoint = torch.load(args.weights, map_location=args.device)
-        # Якщо ми зберегли словник (best_model.pth), дістаємо з нього. Якщо просто ваги - беремо напряму.
         state_dict = checkpoint.get('model_state_dict', checkpoint)
         model.load_state_dict(state_dict)
         print(f"[INFO] Ваги {args.weights} успішно завантажено!")
