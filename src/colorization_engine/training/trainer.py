@@ -42,7 +42,7 @@ class ColorizationTrainer:
             outputs = self.model(inputs)
             
             # Наш loss повертає (total_loss, loss_dict)
-            loss, loss_metrics = self.criterion(outputs, targets)
+            loss, loss_metrics = self.criterion(outputs, targets, inputs) #
             
             # Backward pass та оновлення ваг
             loss.backward()
@@ -67,7 +67,7 @@ class ColorizationTrainer:
             targets = batch["target"].to(self.device)
             
             outputs = self.model(inputs)
-            loss, _ = self.criterion(outputs, targets)
+            loss, _ = self.criterion(outputs, targets, inputs) #
             
             running_loss += loss.item()
             pbar.set_postfix({"loss": f"{loss.item():.4f}"})
@@ -81,7 +81,7 @@ class ColorizationTrainer:
             train_loss = self.train_epoch(epoch)
             val_loss = self.validate_epoch(epoch)
             
-            print(f"Epoch {epoch} Summary: Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+            print(f"Epoch {epoch} Summary:\nTrain Loss: {train_loss}\nValid Loss: {val_loss}")
             
             # Зберігаємо найкращу модель
             if val_loss < self.best_val_loss:
