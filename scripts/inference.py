@@ -1,198 +1,77 @@
-# import os
-# import argparse
-# import torch
-# import cv2
-# import numpy as np
-# from PIL import Image
-
-# from colorization_engine.models.my_colorization import Colorization
-
-# def parse_args():
-#     parser = argparse.ArgumentParser(description="Інференс моделі колоризації")
-#     parser.add_argument("--image", type=str, required=True, help="Шлях до вхідної картинки")
-#     parser.add_argument("--weights", type=str, default="checkpoints/latest_model.pth", help="Шлях до ваг моделі")
-#     parser.add_argument("--out", type=str, default="result.jpg", help="Куди зберегти результат")
-#     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
-#     parser.add_argument("--d_model", type=int, default=256, help="Розмір прихованого стану")
-#     return parser.parse_args()
-
-# def preprocess_image(image_path, size=256):
-#     """Завантажує картинку, робить її Ч/Б і готує для PyTorch"""
-#     # Завантажуємо через OpenCV
-#     img = cv2.imread(image_path)
-#     if img is None:
-#         raise FileNotFoundError(f"Не знайдено картинку: {image_path}")
-    
-#     # Робимо чорно-білою (імітуємо вхідні дані)
-#     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-#     # Повертаємо 3 канали, бо твій Енкодер очікує nn.Conv2d(3, 64, ...)
-#     # Просто дублюємо Ч/Б канал тричі
-#     gray_3c = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)
-    
-#     # Ресайз до 256x256 (як під час тренування)
-#     gray_resized = cv2.resize(gray_3c, (size, size))
-    
-#     # Нормалізуємо до [-1, 1], як у твоєму Normalize
-#     tensor = torch.from_numpy(gray_resized).float().permute(2, 0, 1) # HWC -> CHW
-#     tensor = (tensor / 127.5) - 1.0 
-    
-#     return tensor.unsqueeze(0), img # Повертаємо тензор і оригінал для порівняння
-
-# def postprocess_tensor(tensor, size):
-#     """Повертає тензор [-1, 1] назад у формат картинки [0, 255]"""
-#     tensor = tensor.squeeze(0).cpu().detach()
-#     tensor = (tensor + 1.0) / 2.0 # [-1, 1] -> [0, 1]
-#     tensor = tensor.clamp(0, 1) * 255.0 # [0, 1] -> [0, 255]
-    
-#     img_np = tensor.permute(1, 2, 0).numpy().astype(np.uint8)
-#     # Повертаємо оригінальний розмір
-#     img_np = cv2.resize(img_np, (size[1], size[0])) 
-#     return cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
-
-# def main():
-#     args = parse_args()
-#     print(f"[INFO] Запуск на пристрої: {args.device}")
-
-#     # 1. Завантажуємо модель
-#     print("[INFO] Ініціалізація Mamba-моделі...")
-#     model = Colorization(d_model=args.d_model, layers=6, blocks=2).to(args.device)
-    
-#     # 2. Завантажуємо ваги
-#     if os.path.exists(args.weights):
-#         checkpoint = torch.load(args.weights, map_location=args.device)
-#         # Якщо ми зберегли словник (best_model.pth), дістаємо з нього. Якщо просто ваги - беремо напряму.
-#         state_dict = checkpoint.get('model_state_dict', checkpoint)
-#         model.load_state_dict(state_dict)
-#         print(f"[INFO] Ваги {args.weights} успішно завантажено!")
-#     else:
-#         print(f"[WARNING] Файл ваг {args.weights} не знайдено! Модель видасть випадковий шум.")
-
-#     model.eval()
-
-#     # 3. Обробка картинки
-#     print(f"[INFO] Обробка картинки: {args.image}")
-#     input_tensor, original_img = preprocess_image(args.image)
-#     input_tensor = input_tensor.to(args.device)
-
-#     # 4. Магія! (Forward pass)
-#     with torch.no_grad():
-#         output_tensor = model(input_tensor)
-
-#     # 5. Зберігаємо результат
-#     h, w = original_img.shape[:2]
-#     result_img = postprocess_tensor(output_tensor, size=(h, w))
-    
-#     # Склеюємо оригінал (ч/б) і результат поруч для наочності
-#     gray_original = cv2.cvtColor(cv2.cvtColor(original_img, cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR)
-#     comparison = np.hstack((gray_original, result_img))
-    
-#     cv2.imwrite(args.out, comparison)
-#     print(f"[SUCCESS] Готово! Результат збережено у: {args.out}")
-
-# if __name__ == "__main__":
-#     main()
-
 import os
-import argparse
 import torch
 import cv2
 import numpy as np
 
-# ЗМІНЕНО: Імпортуємо нашу НОВУ LAB-модель
-from colorization_engine.models.mamba2 import MambaUNetLAB
+from scripts import load_colorization_model
+from scripts.utils import Parser, InferenceConfig, parse_unknown_args
+from colorization_engine.data_loaders.transforms import get_transforms
+from colorization_engine.data_loaders.dataset import __rgb_to_lab, _rgb_to_l_norm
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Інференс моделі колоризації (LAB)")
-    parser.add_argument("--image", type=str, required=True, help="Шлях до вхідної картинки")
-    parser.add_argument("--weights", type=str, default="checkpoints/latest_model.pth", help="Шлях до ваг моделі")
-    parser.add_argument("--out", type=str, default="result.jpg", help="Куди зберегти результат")
-    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
-    parser.add_argument("--d_model", type=int, default=256, help="Розмір прихованого стану")
-    parser.add_argument("--image_size", type=int, default=256, help="Розмір зображення")
-    return parser.parse_args()
 
-def preprocess_image_lab(image_path, size=128):
-    """Готує два варіанти: високої роздільної здатності для контурів і низької для нейромережі"""
+def preprocess_image_lab(image_path: str, image_size: int):
     img = cv2.imread(image_path)
     if img is None:
-        raise FileNotFoundError(f"Не знайдено картинку: {image_path}")
+        raise FileNotFoundError(f"[Error] Image not found: {image_path}")
     
     orig_h, orig_w = img.shape[:2]
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     
-    # 1. ОРИГІНАЛЬНИЙ РОЗМІР (звідси ми візьмемо ідеальні контури)
-    img_float_full = img_rgb.astype(np.float32) / 255.0
-    img_lab_full = cv2.cvtColor(img_float_full, cv2.COLOR_RGB2LAB)
-    L_channel_high_res = img_lab_full[:, :, 0]
+    L_channel = __rgb_to_lab(image_rgb)[:, :, 0]
     
-    # 2. ЗМЕНШЕНИЙ РОЗМІР (для входу в Mamba-мережу)
-    img_resized = cv2.resize(img_rgb, (size, size))
-    img_float_res = img_resized.astype(np.float32) / 255.0
-    img_lab_res = cv2.cvtColor(img_float_res, cv2.COLOR_RGB2LAB)
-    L_channel_low_res = img_lab_res[:, :, 0]
-    
-    # 3. Нормалізуємо зменшений L-канал під [-1, 1]
-    L_norm = (L_channel_low_res / 50.0) - 1.0
-    tensor_l = torch.from_numpy(L_norm).unsqueeze(0).unsqueeze(0).float()
-    
-    return tensor_l, img_rgb, L_channel_high_res, (orig_h, orig_w)
+    img_resized = get_transforms(image_size=image_size, is_train=False)(image=image_rgb, target=None)['image']
+    tensor_l = _rgb_to_l_norm(img_resized).unsqueeze(0)
 
-def postprocess_lab_tensor(tensor_ab, L_channel_high_res, orig_shape):
-    """Розтягує кольори та склеює їх з оригінальними контурами"""
+    return tensor_l, L_channel, image_rgb, (orig_h, orig_w)
+
+def postprocess_lab_tensor(L_channel, tensor_ab, orig_shape):
     orig_h, orig_w = orig_shape
-    
-    # 1. Дістаємо згенеровані кольори (вони розміром 128x128)
+
     tensor_ab = tensor_ab.squeeze(0).cpu().detach()
     ab_denorm = tensor_ab.permute(1, 2, 0).numpy() * 110.0
-    
-    # 2. МАГІЯ: Розтягуємо кольорові плями назад до оригінального розміру!
+
     ab_upscaled = cv2.resize(ab_denorm, (orig_w, orig_h), interpolation=cv2.INTER_CUBIC)
-    
-    # 3. Збираємо фінальну LAB картинку
+
     lab_result = np.zeros((orig_h, orig_w, 3), dtype=np.float32)
-    lab_result[:, :, 0] = L_channel_high_res # Ідеальні чіткі контури
-    lab_result[:, :, 1:] = ab_upscaled       # Розтягнуті кольори
-    
-    # 4. Конвертуємо назад у BGR для збереження
+    lab_result[:, :, 0] = L_channel
+    lab_result[:, :, 1:] = ab_upscaled
+
     bgr_result = cv2.cvtColor(lab_result, cv2.COLOR_LAB2BGR)
     bgr_result = (bgr_result * 255.0).clip(0, 255).astype(np.uint8)
-    
+
     return bgr_result
 
-def main():
-    args = parse_args()
-    print(f"[INFO] Запуск на пристрої: {args.device}")
+def inference():
+    known_args, unknown_args = Parser.inference_args()
+    config = InferenceConfig(**vars(known_args))
+    model_params = parse_unknown_args(unknown_args)
 
-    model = MambaUNetLAB(d_model=args.d_model, layers=6, blocks=2).to(args.device)
-    
-    if os.path.exists(args.weights):
-        checkpoint = torch.load(args.weights, map_location=args.device)
-        state_dict = checkpoint.get('model_state_dict', checkpoint)
-        model.load_state_dict(state_dict)
-    else:
-        print(f"[WARNING] Файл ваг не знайдено!")
-        return
-
+    device = torch.device(config.device)
+    print(f"[INFO] Loading model {config.model}...")
+    model = load_colorization_model(model_name=config.model, device=device, weights=config.weights, **model_params)
     model.eval()
 
-    # Беремо розмір 128, як при тренуванні
-    input_tensor, original_rgb, L_high_res, orig_shape = preprocess_image_lab(args.image, size=args.image_size)
-    input_tensor = input_tensor.to(args.device)
+    if config.result is None:
+        file_name = os.path.basename(config.image)
+        config.result = f"result_{file_name}"
 
+    print(f"[INFO] Preprocessing image {config.image}...")
+    input_tensor, L_channel, original_rgb, orig_shape = preprocess_image_lab(config.image, image_size=config.image_size)
+
+    print(f"[INFO] Predicting image a and b...")
     with torch.no_grad():
-        output_ab = model(input_tensor)
+        output_ab = model(input_tensor.to(device))
 
-    # Відправляємо на постобробку разом з оригінальними розмірами
-    result_bgr = postprocess_lab_tensor(output_ab, L_high_res, orig_shape)
-    
+    print(f"[INFO] Postrocessing image...")
+    image_result = postprocess_lab_tensor(L_channel, output_ab, orig_shape)
+
     gray_original = cv2.cvtColor(original_rgb, cv2.COLOR_RGB2GRAY)
-    gray_3c = cv2.cvtColor(gray_original, cv2.COLOR_GRAY2BGR)
-    
-    original_bgr = cv2.cvtColor(original_rgb, cv2.COLOR_RGB2BGR)
-    comparison = np.hstack((gray_3c, result_bgr, original_bgr))
-    cv2.imwrite(args.out, comparison)
-    print(f"[SUCCESS] Готово! Результат збережено у: {args.out}")
+    image_gray = cv2.cvtColor(gray_original, cv2.COLOR_GRAY2BGR)
+    image_original = cv2.cvtColor(original_rgb, cv2.COLOR_RGB2BGR)
+
+    comparison = np.hstack((image_gray, image_result, image_original))
+    cv2.imwrite(config.result, comparison)
+    print(f"[INFO] Done! Result saved to: {config.result}")
 
 if __name__ == "__main__":
-    main()
+    inference()
