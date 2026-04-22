@@ -1,0 +1,1 @@
+from scripts.model_loader import load_colorization_model
