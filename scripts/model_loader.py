@@ -3,18 +3,16 @@ from pathlib import Path
 
 from colorization_engine.models import MODEL_REGISTRY
 
-def load_colorization_model(model_name: str, device: torch.device, checkpoint_path: str | Path | None = None, **override_params) -> torch.nn.Module:
-    """
-    Фабрика для ініціалізації будь-якої моделі з єдиного реєстру.
-    """
+def load_colorization_model(model_name: str, device: torch.device, weights: str | None = None, **override_params) -> torch.nn.Module:
+    """Loads models by its name from model registry"""
     if model_name not in MODEL_REGISTRY:
-        raise ValueError(f"Модель {model_name} не знайдена в реєстрі. Доступні: {list(MODEL_REGISTRY.keys())}")
+        raise ValueError(f"[ERROR] Model {model_name} not found in model registry. Available: {list(MODEL_REGISTRY.keys())}")
 
     config = MODEL_REGISTRY[model_name]
-    weights_path = Path(checkpoint_path) if checkpoint_path else Path(config["weights_path"])
+    weights_path = Path(weights) if weights else Path(config["weights_path"])
 
     if not weights_path.exists():
-        raise FileNotFoundError(f"[ERROR] Ваги не знайдені за шляхом: {weights_path}. Завантажте їх спочатку.")
+        raise FileNotFoundError(f"[ERROR] Weights not found: {weights_path}")
 
     model_wrapper = config["class"](**config["params"], **override_params)
 
@@ -23,9 +21,8 @@ def load_colorization_model(model_name: str, device: torch.device, checkpoint_pa
     if "state_dict" in state_dict:
         state_dict = state_dict["state_dict"]
 
-    model_wrapper.model.load_state_dict(state_dict)
+    model_wrapper.load_state_dict(state_dict)
 
     model_wrapper = model_wrapper.to(device)
-    model_wrapper.eval()
 
     return model_wrapper
