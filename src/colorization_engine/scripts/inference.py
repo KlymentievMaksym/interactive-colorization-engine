@@ -3,8 +3,8 @@ import torch
 import cv2
 import numpy as np
 
-from scripts import load_colorization_model
-from scripts.utils import Parser, InferenceConfig, parse_unknown_args
+from colorization_engine.scripts import load_colorization_model
+from colorization_engine.scripts.utils import Parser, InferenceConfig, parse_unknown_args
 from colorization_engine.data_loaders.transforms import get_transforms
 from colorization_engine.data_loaders.dataset import __rgb_to_lab, _rgb_to_l_norm
 
@@ -20,6 +20,7 @@ def preprocess_image_lab(image_path: str, image_size: int):
     L_channel = __rgb_to_lab(image_rgb)[:, :, 0]
     
     img_resized = get_transforms(image_size=image_size, is_train=False)(image=image_rgb, target=None)['image']
+    # img_resized = cv2.resize(image_rgb, (image_size, image_size), interpolation=cv2.INTER_CUBIC)
     tensor_l = _rgb_to_l_norm(img_resized).unsqueeze(0)
 
     return tensor_l, L_channel, image_rgb, (orig_h, orig_w)

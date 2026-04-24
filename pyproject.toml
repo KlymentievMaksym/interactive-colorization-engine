@@ -38,8 +38,10 @@ dev = [
 Repository = "https://github.com/KlymentievMaksym/interactive-colorization-engine.git"
 Issues = "https://github.com/KlymentievMaksym/interactive-colorization-engine/issues"
 
-# [project.scripts]
-# train = "ssm_sharing.train:train_command"
+[project.scripts]
+train = "colorization_engine.scripts.train:train"
+evaluate = "colorization_engine.scripts.evaluate:evaluate"
+inference = "colorization_engine.scripts.inference:inference"
 
 # [project.entry-points."spam.magical"]
 # tomatoes = "spam:main_tomatoes"

@@ -7,8 +7,8 @@ import numpy as np
 
 from colorization_engine.utils.metrics import ColorizationMetrics
 
-from scripts import load_colorization_model
-from scripts.utils import Parser, EvalConfig, get_dataloader, parse_unknown_args
+from colorization_engine.scripts import load_colorization_model
+from colorization_engine.scripts.utils import Parser, EvalConfig, get_dataloader, parse_unknown_args
 
 
 def save_result_images(l_tensor, ab_pred, ab_target, save_path, name):

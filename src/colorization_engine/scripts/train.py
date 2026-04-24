@@ -1,7 +1,7 @@
 import torch
 
-from scripts import load_colorization_model
-from scripts.utils import Parser, TrainConfig, parse_unknown_args, get_dataloader
+from colorization_engine.scripts import load_colorization_model
+from colorization_engine.scripts.utils import Parser, TrainConfig, parse_unknown_args, get_dataloader
 
 from colorization_engine.training.losses import ColorizationLoss
 from colorization_engine.training.trainer import ColorizationTrainer

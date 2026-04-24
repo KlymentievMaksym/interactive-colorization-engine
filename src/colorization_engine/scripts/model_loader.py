@@ -1,3 +1,4 @@
+import os
 import torch
 from pathlib import Path
 
@@ -11,18 +12,18 @@ def load_colorization_model(model_name: str, device: torch.device, weights: str 
     config = MODEL_REGISTRY[model_name]
     weights_path = Path(weights) if weights else Path(config["weights_path"])
 
-    if not weights_path.exists():
-        raise FileNotFoundError(f"[ERROR] Weights not found: {weights_path}")
-
     model_wrapper = config["class"](**config["params"], **override_params)
 
-    state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
+    if weights_path and os.path.isfile(weights_path):
+        print(f"[INFO] Weights loading from {weights_path}...")
+        state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
+        
+        if "state_dict" in state_dict:
+            state_dict = state_dict["state_dict"]
+            
+        model_wrapper.load_state_dict(state_dict, strict=False)
+        
+    elif weights_path:
+        print(f"[WARNING] Download skip: file {weights_path} not found or directory.")
 
-    if "state_dict" in state_dict:
-        state_dict = state_dict["state_dict"]
-
-    model_wrapper.load_state_dict(state_dict)
-
-    model_wrapper = model_wrapper.to(device)
-
-    return model_wrapper
+    return model_wrapper.to(device)

@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 from colorization_engine.data_loaders.dataset import PairedDataset, SingleTargetFolderDataset
 from colorization_engine.data_loaders.transforms import get_transforms
 
-from scripts.utils import DataloaderConfig
+from colorization_engine.scripts.utils import DataloaderConfig
 
 def get_dataloader(config: DataloaderConfig, is_train: bool = False, num_workers: int = 4):
     paths = config.data if is_train else config.val_data
