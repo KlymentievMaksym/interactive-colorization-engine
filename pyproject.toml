@@ -26,6 +26,8 @@ dependencies = [
     "torchvision",
     "torchmetrics",
     "mamba-ssm",
+
+    "hydra-core",
 ]
 
 [project.optional-dependencies]
@@ -48,7 +50,7 @@ inference = "colorization_engine.scripts.inference:inference"
 
 [tool.setuptools_scm]
 root = "."
-fallback_version = "v1.0.0.NoGit"
+fallback_version = "0.5.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

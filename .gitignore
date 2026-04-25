@@ -1,6 +1,7 @@
 checkpoints/
 *.jpg
 *.png
+src/colorization_engine/models/colorizers/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
