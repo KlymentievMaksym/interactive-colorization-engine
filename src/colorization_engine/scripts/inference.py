@@ -1,81 +1,127 @@
-import os
+# src/colorization_engine/scripts/inference.py
 import torch
 import cv2
 import numpy as np
+from pathlib import Path
+from tqdm import tqdm
+import hydra
+from hydra.core.config_store import ConfigStore
+from hydra.utils import to_absolute_path
 
 from colorization_engine.models import load_colorization_model
-from colorization_engine.utils import Parser, InferenceConfig, parse_unknown_args
+from colorization_engine.utils import InferenceConfig
 from colorization_engine.data.transforms import get_transforms
-from colorization_engine.data.dataset import __rgb_to_lab, _rgb_to_l_norm
+from colorization_engine.data.dataset import _rgb_to_lab, _rgb_to_l_norm
+
+class ColorizationPipeline:
+    """
+    Чистий API для інференсу. 
+    Ідеально підходить для інтеграції у веб-додатки (colorization_app).
+    """
+    def __init__(self, model: torch.nn.Module, device: str | torch.device, image_size: int = 256):
+        self.device = torch.device(device)
+        self.model = model.to(self.device)
+        self.model.eval()
+        self.image_size = image_size
+        self.transform = get_transforms(image_size=self.image_size, is_train=False)
+
+    def preprocess(self, image_path: str):
+        img = cv2.imread(image_path)
+        if img is None:
+            raise FileNotFoundError(f"[ERROR] Image not found: {image_path}")
+
+        orig_h, orig_w = img.shape[:2]
+        image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        L_channel = _rgb_to_lab(image_rgb)[:, :, 0]
+
+        img_resized = self.transform(image=image_rgb)['image']
+        tensor_l = _rgb_to_l_norm(img_resized).unsqueeze(0)
+
+        return tensor_l, L_channel, image_rgb, (orig_h, orig_w)
+
+    def postprocess(self, L_channel: np.ndarray, tensor_ab: torch.Tensor, orig_shape: tuple) -> np.ndarray:
+        orig_h, orig_w = orig_shape
+
+        tensor_ab = tensor_ab.squeeze(0).cpu().detach()
+        ab_denorm = tensor_ab.permute(1, 2, 0).numpy() * 110.0
+
+        ab_upscaled = cv2.resize(ab_denorm, (orig_w, orig_h), interpolation=cv2.INTER_CUBIC)
+
+        lab_result = np.zeros((orig_h, orig_w, 3), dtype=np.float32)
+        lab_result[:, :, 0] = L_channel
+        lab_result[:, :, 1:] = ab_upscaled
+
+        bgr_result = cv2.cvtColor(lab_result, cv2.COLOR_LAB2BGR)
+        bgr_result = (bgr_result * 255.0).clip(0, 255).astype(np.uint8)
+
+        return bgr_result
+
+    @torch.no_grad()
+    def colorize(self, image_path: str) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Головний метод для додатку. 
+        Приймає шлях до картинки, повертає (Кольоровий результат, Оригінал RGB).
+        """
+        input_tensor, L_channel, original_rgb, orig_shape = self.preprocess(image_path)
+
+        output_ab = self.model(input_tensor.to(self.device))
+
+        bgr_result = self.postprocess(L_channel, output_ab, orig_shape)
+        return bgr_result, original_rgb
 
 
-def preprocess_image_lab(image_path: str, image_size: int | None):
-    if image_size is None:
-        raise ValueError("[ERROR] No image size found")
-    img = cv2.imread(image_path)
-    if img is None:
-        raise FileNotFoundError(f"[Error] Image not found: {image_path}")
+cs = ConfigStore.instance()
+cs.store(name="inference_config", node=InferenceConfig)
+
+@hydra.main(version_base=None, config_path="../configs", config_name="inference")
+def inference(config: InferenceConfig):
+    image_paths = []
     
-    orig_h, orig_w = img.shape[:2]
-    image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    if config.image:
+        image_paths.append(Path(to_absolute_path(config.image)))
+
+    if config.input_dir:
+        dir_path = Path(to_absolute_path(config.input_dir))
+        if dir_path.exists():
+            for ext in ["*.jpg", "*.jpeg", "*.png", "*.JPG", "*.PNG"]:
+                image_paths.extend(dir_path.glob(ext))
+        else:
+            print(f"[WARNING] Input directory not found: {dir_path}")
+
+    if not image_paths:
+        print("[ERROR] No images found! Provide 'image=...' or 'input_dir=...'")
+        return
+
+    out_dir = Path(to_absolute_path(config.result_dir))
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    device_name = config.device if config.device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(device_name)
+
+    print(f"[INFO] Loading model {config.model.model_name}...")
+    model = load_colorization_model(config.model, device=device)
+    pipeline = ColorizationPipeline(model=model, device=device, image_size=config.image_size)
+
+    print(f"[INFO] Found {len(image_paths)} images. Starting colorization...")
     
-    L_channel = __rgb_to_lab(image_rgb)[:, :, 0]
-    
-    img_resized = get_transforms(image_size=image_size, is_train=False)(image=image_rgb, target=None)['image']
-    # img_resized = cv2.resize(image_rgb, (image_size, image_size), interpolation=cv2.INTER_CUBIC)
-    tensor_l = _rgb_to_l_norm(img_resized).unsqueeze(0)
+    for img_path in tqdm(image_paths, desc="Processing Images"):
+        try:
+            bgr_result, original_rgb = pipeline.colorize(str(img_path))
 
-    return tensor_l, L_channel, image_rgb, (orig_h, orig_w)
+            gray_original = cv2.cvtColor(original_rgb, cv2.COLOR_RGB2GRAY)
+            image_gray = cv2.cvtColor(gray_original, cv2.COLOR_GRAY2BGR)
+            image_original = cv2.cvtColor(original_rgb, cv2.COLOR_RGB2BGR)
 
-def postprocess_lab_tensor(L_channel, tensor_ab, orig_shape):
-    orig_h, orig_w = orig_shape
+            comparison = np.hstack((image_gray, bgr_result, image_original))
 
-    tensor_ab = tensor_ab.squeeze(0).cpu().detach()
-    ab_denorm = tensor_ab.permute(1, 2, 0).numpy() * 110.0
+            result_path = out_dir / f"result_{img_path.name}"
+            cv2.imwrite(str(result_path), comparison)
 
-    ab_upscaled = cv2.resize(ab_denorm, (orig_w, orig_h), interpolation=cv2.INTER_CUBIC)
+        except Exception as e:
+            print(f"\n[ERROR] Failed to process {img_path.name}: {e}")
 
-    lab_result = np.zeros((orig_h, orig_w, 3), dtype=np.float32)
-    lab_result[:, :, 0] = L_channel
-    lab_result[:, :, 1:] = ab_upscaled
-
-    bgr_result = cv2.cvtColor(lab_result, cv2.COLOR_LAB2BGR)
-    bgr_result = (bgr_result * 255.0).clip(0, 255).astype(np.uint8)
-
-    return bgr_result
-
-def inference():
-    known_args, unknown_args = Parser.inference_args()
-    config = InferenceConfig(**vars(known_args))
-    model_params = parse_unknown_args(unknown_args)
-
-    device = torch.device(config.device)
-    print(f"[INFO] Loading model {config.model}...")
-    model, standard_config = load_colorization_model(model_name=config.model, device=device, weights_path=config.weights, config_path=config.config, **model_params)
-    model.eval()
-    config.image_size = config.image_size if config.image_size is not None else standard_config.image_size
-
-    if config.result is None:
-        file_name = os.path.basename(config.image)
-        config.result = f"result_{file_name}"
-
-    print(f"[INFO] Preprocessing image {config.image}...")
-    input_tensor, L_channel, original_rgb, orig_shape = preprocess_image_lab(config.image, image_size=config.image_size)
-
-    print(f"[INFO] Predicting image a and b...")
-    with torch.no_grad():
-        output_ab = model(input_tensor.to(device))
-
-    print(f"[INFO] Postrocessing image...")
-    image_result = postprocess_lab_tensor(L_channel, output_ab, orig_shape)
-
-    gray_original = cv2.cvtColor(original_rgb, cv2.COLOR_RGB2GRAY)
-    image_gray = cv2.cvtColor(gray_original, cv2.COLOR_GRAY2BGR)
-    image_original = cv2.cvtColor(original_rgb, cv2.COLOR_RGB2BGR)
-
-    comparison = np.hstack((image_gray, image_result, image_original))
-    cv2.imwrite(config.result, comparison)
-    print(f"[INFO] Done! Result saved to: {config.result}")
+    print(f"[INFO] Done! All results saved to: {out_dir}")
 
 if __name__ == "__main__":
     inference()

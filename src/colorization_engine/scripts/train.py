@@ -1,54 +1,55 @@
 import os
 import torch
+import hydra
+from hydra.core.config_store import ConfigStore
+from hydra.utils import to_absolute_path
 
 from colorization_engine.models import load_colorization_model
-from colorization_engine.utils import Parser, TrainConfig, parse_unknown_args, get_dataloader
-
+from colorization_engine.utils import TrainConfig
+from colorization_engine.data import get_dataloader
 from colorization_engine.training.losses import ColorizationLoss
 from colorization_engine.training.trainer import ColorizationTrainer
 
+CS = ConfigStore.instance()
+CS.store(name="train_config", node=TrainConfig)
 
-def train():
-    known_args, unknown_args = Parser.train_args()
-    config = TrainConfig(**vars(known_args))
-    model_params = parse_unknown_args(unknown_args)
+@hydra.main(version_base=None, config_path="../configs", config_name="train")
+def train(config: TrainConfig):
+    device_name = config.device if config.device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(device_name)
 
-    print(f"[INFO] Loading model {config.model}...")
-    # print(config)
-    model, standard_config = load_colorization_model(model_name=config.model, device=torch.device(config.device), weights_path=config.weights, config_path=config.config, **model_params)
+    print(f"[INFO] Loading model {config.model.model_name}...")
+    model = load_colorization_model(config.model)
 
-    lr = standard_config.training.lr if hasattr(standard_config.training, 'lr') else None
-    epochs = standard_config.training.epochs if hasattr(standard_config.training, 'epochs') else None
-    batch_size = standard_config.training.batch_size if hasattr(standard_config.training, 'batch_size') else None
+    print(f"[INFO] Loading datasets...")
+    train_paths = [to_absolute_path(p) for p in config.data.train]
+    val_paths = [to_absolute_path(p) for p in config.data.val] if config.data.val else None
 
-    config.lr = config.lr if config.lr is not None else lr
-    config.epochs = config.epochs if config.epochs is not None else epochs
-    config.batch_size = config.batch_size if config.batch_size is not None else batch_size
-    config.image_size = config.image_size if config.image_size is not None else standard_config.image_size
+    train_loader = get_dataloader(data_paths=train_paths, image_size=config.image_size, is_train=True, batch_size=config.training.batch_size)
+    val_loader = get_dataloader(data_paths=val_paths, image_size=config.image_size, is_train=False, batch_size=config.training.batch_size) if val_paths else None
 
-    # print(config)
-    # raise NotImplementedError
-
-    print(f"[INFO] Loading datasets {', '.join(config.data)}{' and ' + ', '.join(config.val_data) if config.val_data else ''} with image size {config.image_size} ...")
-    train_loader = get_dataloader(config=config, is_train=True, num_workers=4)
-    val_loader = get_dataloader(config=config, is_train=False, num_workers=4)
-
-    print(f"[INFO] Loading loss, while also adding lr: {config.lr}...")
-    criterion = ColorizationLoss(.5, 1)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr, weight_decay=1e-4)
+    print(f"[INFO] Initializing Optimizer & Loss (lr={config.training.lr})")
+    criterion = ColorizationLoss(lambda_smooth=config.training.loss_lambda_smooth, lambda_cosine=config.training.loss_lambda_cosine)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config.training.lr, weight_decay=config.training.weight_decay)
 
     start_epoch = 1
     best_val_loss = float('inf')
 
-    if config.resume and os.path.isfile(config.resume):
-        print(f"[INFO] Resuming training from {config.resume}...")
-        checkpoint = torch.load(config.resume, map_location=config.device)
+    if config.training.resume:
+        resume_path = to_absolute_path(config.training.resume)
+        if os.path.isfile(resume_path):
+            print(f"[INFO] Resuming training from {resume_path}...")
+            checkpoint = torch.load(resume_path, map_location=device)
 
-        if 'optimizer_state_dict' in checkpoint:
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            if 'state_dict' in checkpoint:
+                model.load_state_dict(checkpoint['state_dict'])
+                print("[INFO] Model weights loaded successfully!")
 
-        start_epoch = checkpoint.get('epoch', start_epoch)
-        best_val_loss = checkpoint.get('val_loss', best_val_loss)
+            if 'optimizer_state_dict' in checkpoint:
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+            start_epoch = checkpoint.get('epoch', 0) + 1
+            best_val_loss = checkpoint.get('val_loss', best_val_loss)
 
     trainer = ColorizationTrainer(
         model=model,
@@ -56,12 +57,14 @@ def train():
         val_loader=val_loader,
         criterion=criterion,
         optimizer=optimizer,
-        device=config.device,
-        do_save=config.no_save,
-        save_dir="checkpoints"
+        device=device,
+        do_save=config.training.do_save,
+        save_name=config.model.model_name,
+        save_dir="checkpoints",
+        plot_dir="results/train"
     )
 
-    trainer.fit(epochs=config.epochs, start_epoch=start_epoch, best_val_loss=best_val_loss)
+    trainer.fit(epochs=config.training.epochs, start_epoch=start_epoch, best_val_loss=best_val_loss)
 
 if __name__ == "__main__":
     train()

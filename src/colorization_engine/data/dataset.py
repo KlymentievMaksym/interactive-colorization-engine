@@ -21,7 +21,7 @@ def _basic_prepare(path: str | Path, color_to: int):
     _img = cv2.cvtColor(_img, color_to)
     return _img
 
-def __rgb_to_lab(image_rgb: np.ndarray):
+def _rgb_to_lab(image_rgb: np.ndarray):
     """Returns cv2 LAB format in float32 from cv2 RGB uint8"""
     img_float = image_rgb.astype(np.float32) / 255.0
     return cv2.cvtColor(img_float, cv2.COLOR_RGB2LAB)
@@ -33,15 +33,15 @@ def _ab_to_ab_norm(ab: np.ndarray):
     return torch.from_numpy(ab / 110.0).permute(2, 0, 1).float()
 
 def _rgb_to_lab_norm(image_rgb: np.ndarray):
-    img_lab = __rgb_to_lab(image_rgb)
+    img_lab = _rgb_to_lab(image_rgb)
     return _l_to_l_norm(img_lab[:, :, 0]), _ab_to_ab_norm(img_lab[:, :, 1:])
 
 def _rgb_to_l_norm(image_rgb: np.ndarray):
-    img_lab = __rgb_to_lab(image_rgb)
+    img_lab = _rgb_to_lab(image_rgb)
     return _l_to_l_norm(img_lab[:, :, 0])
 
 def _rgb_to_ab_norm(image_rgb: np.ndarray):
-    img_lab = __rgb_to_lab(image_rgb)
+    img_lab = _rgb_to_lab(image_rgb)
     return _ab_to_ab_norm(img_lab[:, :, 1:])
 
 

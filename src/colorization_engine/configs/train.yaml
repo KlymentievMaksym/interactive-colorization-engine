@@ -1,0 +1,22 @@
+defaults:
+  - model: mamba 
+  - _self_
+
+image_size: 256
+device: null
+
+training:
+  lr: 1e-4
+  weight_decay: 1e-4
+  epochs: 100
+  batch_size: 4
+  resume: null
+  do_save: true
+
+  loss_lambda_smooth: 0.5
+  loss_lambda_cosine: 1.0
+
+data:
+  # train: ["data/coco_train_2017/test100"]
+  train: ["data/NCD/NCD Dataset/Gray", "data/NCD/NCD Dataset/Color"]
+  val: ["data/NCD/NCD Dataset/Gray", "data/NCD/NCD Dataset/Color"]

@@ -3,7 +3,7 @@ from albumentations.pytorch import ToTensorV2
 
 
 def get_transforms(image_size: int = 256, is_train: bool = True, additional_targets: dict[str, str] | None = None) -> A.Compose:
-    targets = additional_targets if additional_targets else {'target': 'image'}
+    targets = additional_targets
     if is_train:
         return A.Compose(
             [

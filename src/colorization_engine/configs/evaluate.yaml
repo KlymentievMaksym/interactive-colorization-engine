@@ -1,0 +1,14 @@
+defaults:
+  - model: mamba 
+  - _self_
+
+image_size: 256
+device: null
+
+batch_size: 4
+output_dir: "results/eval"
+save_number: 8
+
+data:
+  train: null
+  val: ["data/coco_val_2017/val2017"]

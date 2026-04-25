@@ -1,0 +1,10 @@
+defaults:
+  - model: mamba 
+  - _self_
+
+image_size: 256
+device: null
+
+image: null
+input_dir: null
+result_dir: "results/inference"
