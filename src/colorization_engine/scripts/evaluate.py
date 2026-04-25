@@ -5,10 +5,10 @@ from tqdm import tqdm
 import cv2
 import numpy as np
 
-from colorization_engine.utils.metrics import ColorizationMetrics
+from colorization_engine.evaluation.metrics import ColorizationMetrics
 
-from colorization_engine.scripts import load_colorization_model
-from colorization_engine.scripts.utils import Parser, EvalConfig, get_dataloader, parse_unknown_args
+from colorization_engine.models import load_colorization_model
+from colorization_engine.utils import Parser, EvalConfig, get_dataloader, parse_unknown_args
 
 
 def save_result_images(l_tensor, ab_pred, ab_target, save_path, name):
@@ -37,10 +37,13 @@ def evaluate():
     model_params = parse_unknown_args(unknown_args)
 
     device = torch.device(config.device)
-    model = load_colorization_model(model_name=config.model, device=device, weights=config.weights, **model_params)
+    model, standard_config = load_colorization_model(model_name=config.model, device=device, weights_path=config.weights, config_path=config.config, **model_params)
     model.eval()
+    batch_size = standard_config.training.batch_size if hasattr(standard_config.training, 'batch_size') else None
+    config.batch_size = config.batch_size if config.batch_size is not None else batch_size
+    config.image_size = config.image_size if config.image_size is not None else standard_config.image_size
 
-    print(f"[INFO] Loading datasets {', '.join(config.data)}...")
+    print(f"[INFO] Loading datasets {', '.join(config.data)} with image size {config.image_size} ...")
     config.val_data = config.data
     dataloader = get_dataloader(config=config, is_train=False, num_workers=4)
 

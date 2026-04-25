@@ -3,13 +3,15 @@ import torch
 import cv2
 import numpy as np
 
-from colorization_engine.scripts import load_colorization_model
-from colorization_engine.scripts.utils import Parser, InferenceConfig, parse_unknown_args
-from colorization_engine.data_loaders.transforms import get_transforms
-from colorization_engine.data_loaders.dataset import __rgb_to_lab, _rgb_to_l_norm
+from colorization_engine.models import load_colorization_model
+from colorization_engine.utils import Parser, InferenceConfig, parse_unknown_args
+from colorization_engine.data.transforms import get_transforms
+from colorization_engine.data.dataset import __rgb_to_lab, _rgb_to_l_norm
 
 
-def preprocess_image_lab(image_path: str, image_size: int):
+def preprocess_image_lab(image_path: str, image_size: int | None):
+    if image_size is None:
+        raise ValueError("[ERROR] No image size found")
     img = cv2.imread(image_path)
     if img is None:
         raise FileNotFoundError(f"[Error] Image not found: {image_path}")
@@ -49,8 +51,9 @@ def inference():
 
     device = torch.device(config.device)
     print(f"[INFO] Loading model {config.model}...")
-    model = load_colorization_model(model_name=config.model, device=device, weights=config.weights, **model_params)
+    model, standard_config = load_colorization_model(model_name=config.model, device=device, weights_path=config.weights, config_path=config.config, **model_params)
     model.eval()
+    config.image_size = config.image_size if config.image_size is not None else standard_config.image_size
 
     if config.result is None:
         file_name = os.path.basename(config.image)
