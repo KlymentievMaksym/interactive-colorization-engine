@@ -1,0 +1,9 @@
+[submodule "src/colorization_engine/models/util_models/colorizers"]
+	path = src/colorization_engine/models/util_models/colorizers
+	url = https://github.com/richzhang/colorization.git
+[submodule "src/colorization_engine/models/util_models/DDColor"]
+	path = src/colorization_engine/models/util_models/DDColor
+	url = https://github.com/piddnad/DDColor.git
+[submodule "src/colorization_engine/models/util_models/iColoriT"]
+	path = src/colorization_engine/models/util_models/iColoriT
+	url = https://github.com/pmh9960/iColoriT.git
