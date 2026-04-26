@@ -1,0 +1,4 @@
+model_name: "siggraph17"
+weights: null #checkpoints/latest_siggraph17.pth
+model_params:
+  pretrained: true
