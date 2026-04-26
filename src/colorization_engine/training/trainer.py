@@ -57,7 +57,7 @@ class ColorizationTrainer:
 
     def _update_loss(self, loss, loss_metrics, batches_pbar):
         self.running_loss += loss.item()
-        batches_pbar.set_postfix({"loss": f"{loss.item():.4f}", "metrics": loss_metrics})
+        batches_pbar.set_postfix({"loss": f"{loss.item():.4f}"})#, "metrics": loss_metrics})
 
     def _lab_to_rgb(self, input_img, target_img):
         _input_img = (input_img + 1.0) * 50.0
