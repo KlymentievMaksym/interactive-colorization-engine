@@ -6,13 +6,17 @@ from omegaconf import OmegaConf
 from colorization_engine.utils import ModelNode
 
 from colorization_engine.models.mamba import MambaWrapper
-from colorization_engine.models.zhang import ZhangWrapper
-# from colorization_engine.models.deoldify import DeOldifyWrapper
+from colorization_engine.models.siggraph17 import Siggraph17Wrapper
+from colorization_engine.models.eccv16 import Eccv16Wrapper
+from colorization_engine.models.icolorit import IColoriTWrapper
+from colorization_engine.models.ddcolor import DDColorWrapper
 
 MODEL_REGISTRY = {
     "mamba": MambaWrapper,
-    "zhang_siggraph17": ZhangWrapper,
-    # "deoldify_artistic": DeOldifyWrapper,
+    "siggraph17": Siggraph17Wrapper,
+    "eccv16": Eccv16Wrapper,
+    "icolorit": IColoriTWrapper,
+    "ddcolor": DDColorWrapper,
 }
 
 def load_colorization_model(config: ModelNode, device: torch.device | str = "cuda") -> torch.nn.Module:
