@@ -28,6 +28,10 @@ dependencies = [
     "mamba-ssm",
 
     "hydra-core",
+
+    "IPython",
+    "timm",
+    "einops",
 ]
 
 [project.optional-dependencies]
