@@ -1,0 +1,4 @@
+model_name: "ddcolor"
+weights: null #checkpoints/latest_mamba.pth
+model_params:
+  weights_name: "ddcolor_paper_tiny.pth"
