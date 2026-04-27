@@ -25,20 +25,39 @@ class ColorizationPipeline:
         self.image_size = image_size
         self.transform = get_transforms(image_size=self.image_size, is_train=False)
 
-    def preprocess(self, image_path: str):
-        img = cv2.imread(image_path)
-        if img is None:
-            raise FileNotFoundError(f"[ERROR] Image not found: {image_path}")
+    def preprocess(self, image: np.ndarray, hints: np.ndarray | None = None):
+        # img = cv2.imread(image_path)
+        # if img is None:
+        #     raise FileNotFoundError(f"[ERROR] Image not found: {image_path}")
 
-        orig_h, orig_w = img.shape[:2]
-        image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        orig_h, orig_w = image.shape[:2]
+        # image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        L_channel = _rgb_to_lab(image_rgb)[:, :, 0]
+        L_channel = _rgb_to_lab(image)[:, :, 0]
 
-        img_resized = self.transform(image=image_rgb)['image']
+        img_resized = self.transform(image=image)['image']
         tensor_l = _rgb_to_l_norm(img_resized).unsqueeze(0)
 
-        return tensor_l, L_channel, image_rgb, (orig_h, orig_w)
+        tensor_hints = None
+        if hints is not None:
+            # RGBA numpy array [H, W, 4] з Gradio
+            hints_resized = cv2.resize(hints, (self.image_size, self.image_size), interpolation=cv2.INTER_NEAREST)
+
+            hints_rgb = hints_resized[:, :, :3]
+            hints_alpha = hints_resized[:, :, 3]
+
+            hints_lab = _rgb_to_lab(hints_rgb)
+
+            ab_norm = (hints_lab[:, :, 1:] / 110.0)
+
+            mask = (hints_alpha > 0).astype(np.float32)[..., np.newaxis]
+
+            hints_combined = np.concatenate([ab_norm, mask], axis=-1)
+
+            # [H, W, 3] -> [3, H, W] -> [1, 3, H, W]
+            tensor_hints = torch.from_numpy(hints_combined).permute(2, 0, 1).unsqueeze(0).float()
+
+        return tensor_l, tensor_hints, L_channel, image, (orig_h, orig_w)
 
     def postprocess(self, L_channel: np.ndarray, tensor_ab: torch.Tensor, orig_shape: tuple) -> np.ndarray:
         orig_h, orig_w = orig_shape
@@ -52,23 +71,23 @@ class ColorizationPipeline:
         lab_result[:, :, 0] = L_channel
         lab_result[:, :, 1:] = ab_upscaled
 
-        bgr_result = cv2.cvtColor(lab_result, cv2.COLOR_LAB2BGR)
-        bgr_result = (bgr_result * 255.0).clip(0, 255).astype(np.uint8)
+        rgb_result = cv2.cvtColor(lab_result, cv2.COLOR_LAB2RGB)
+        rgb_result = (rgb_result * 255.0).clip(0, 255).astype(np.uint8)
 
-        return bgr_result
+        return rgb_result
 
     @torch.no_grad()
-    def colorize(self, image_path: str) -> tuple[np.ndarray, np.ndarray]:
+    def colorize(self, image: np.ndarray, hints: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
         """
         Головний метод для додатку. 
-        Приймає шлях до картинки, повертає (Кольоровий результат, Оригінал RGB).
+        Приймає картинку, повертає (Кольоровий результат, Оригінал RGB).
         """
-        input_tensor, L_channel, original_rgb, orig_shape = self.preprocess(image_path)
+        input_tensor, tensor_hints, L_channel, original_rgb, orig_shape = self.preprocess(image, hints)
 
-        output_ab = self.model(input_tensor.to(self.device))
+        output_ab = self.model(input_tensor.to(self.device), tensor_hints.to(self.device) if tensor_hints is not None else hints)
 
-        bgr_result = self.postprocess(L_channel, output_ab, orig_shape)
-        return bgr_result, original_rgb
+        rgb_result = self.postprocess(L_channel, output_ab, orig_shape)
+        return rgb_result, original_rgb
 
 
 cs = ConfigStore.instance()
@@ -106,8 +125,14 @@ def inference(config: InferenceConfig):
     print(f"[INFO] Found {len(image_paths)} images. Starting colorization...")
     
     for img_path in tqdm(image_paths, desc="Processing Images"):
+        img = cv2.imread(img_path)
+        if img is None:
+            raise FileNotFoundError(f"[ERROR] Image not found: {img_path}")
+
+        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         try:
-            bgr_result, original_rgb = pipeline.colorize(str(img_path))
+            rgb_result, original_rgb = pipeline.colorize(img_rgb)
+            bgr_result = cv2.cvtColor(rgb_result, cv2.COLOR_RGB2BGR)
 
             gray_original = cv2.cvtColor(original_rgb, cv2.COLOR_RGB2GRAY)
             image_gray = cv2.cvtColor(gray_original, cv2.COLOR_GRAY2BGR)
