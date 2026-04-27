@@ -22,10 +22,7 @@ class Eccv16Wrapper(BaseColorizer):
         # [-1, 1] -> [0, 100]
         l_zhang = (l_norm + 1.0) * 50.0
 
-        if hints is None:
-            ab_raw = self.model(l_zhang)
-        else:
-            raise NotImplementedError("Interactive")
+        ab_raw = self.model(l_zhang)
 
         # ~[-110, 110] -> [-1, 1]
         ab_pred = ab_raw / 110.0
