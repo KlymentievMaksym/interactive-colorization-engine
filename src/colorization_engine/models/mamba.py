@@ -39,12 +39,12 @@ class MambaWrapper(BaseColorizer):
             nn.Tanh() 
         )
 
-    def forward(self, l_channel):
+    def forward(self, l_norm: torch.Tensor, hints: torch.Tensor | None = None):
         """
         l_channel: (B, 1, H, W) - чорно-біла картинка
         """
         # --- ЕНКОДЕР ---
-        feat1 = self.enc1(l_channel) # Зберігаємо для Skip Connection
+        feat1 = self.enc1(l_norm) # Зберігаємо для Skip Connection
         feat2 = self.enc2(feat1)
         
         # --- MAMBA ---

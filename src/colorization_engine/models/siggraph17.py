@@ -25,7 +25,12 @@ class Siggraph17Wrapper(BaseColorizer):
         if hints is None:
             ab_raw = self.model(l_zhang)
         else:
-            raise NotImplementedError("Interactive")
+            ab_hints_norm = hints[:, 0:2, :, :]
+            mask_b = hints[:, 2:3, :, :]
+
+            input_b = ab_hints_norm * 110.0
+
+            ab_raw = self.model(l_zhang, input_B=input_b, mask_B=mask_b)
 
         # ~[-110, 110] -> [-1, 1]
         ab_pred = ab_raw / 110.0
