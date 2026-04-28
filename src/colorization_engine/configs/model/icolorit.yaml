@@ -1,4 +1,4 @@
 model_name: "icolorit"
 weights: null #checkpoints/latest_mamba.pth
 model_params:
-  weights_name: "icolorit_base_4ch_patch16_224"
+  weights_path: "models/icolorit_base_4ch_patch16_224.pth"
