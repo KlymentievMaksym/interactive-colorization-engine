@@ -6,5 +6,5 @@ image_size: 256
 device: null
 
 image: null
-input_dir: null
+input_dir: "checkpoints/"
 result_dir: "results/inference"
