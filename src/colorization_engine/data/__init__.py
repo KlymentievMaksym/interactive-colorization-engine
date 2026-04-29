@@ -1,1 +1,1 @@
-from colorization_engine.data.dataloader import get_dataloader
+from colorization_engine.data.datamodule import ColorizationDataModule
