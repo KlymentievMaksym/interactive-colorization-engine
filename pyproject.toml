@@ -13,25 +13,27 @@ description = "Core machine learning engine for interactive image and video colo
 readme = "README.md"
 license = "MIT"
 dependencies = [
+    "opencv-python",
+    "hydra-core",
+
     "numpy",
     "scipy",
 
     "tqdm",
     "matplotlib",
+    "tensorboard",
+
+    "albumentations",
+    "einops",
 
     "torch",
-    "albumentations",
-    "opencv-python",
-
+    "lightning",
     "torchvision",
     "torchmetrics",
     "mamba-ssm",
 
-    "hydra-core",
-
     "IPython",
     "timm",
-    "einops",
 ]
 
 [project.optional-dependencies]
