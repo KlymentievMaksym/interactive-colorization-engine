@@ -1,6 +1,11 @@
 import torch
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    PathType = str | list[str]
+else:
+    PathType = Any
 
 @dataclass
 class ModelNode:
@@ -22,8 +27,9 @@ class TrainingConfig:
 
 @dataclass
 class DataConfig:
-    train: list[str] = field(default_factory=list)
-    val: list[str] | None = None
+    train: list[PathType] = field(default_factory=list)
+    val: list[PathType] | None = None
+    test: list[PathType] | None = None
 
 @dataclass
 class MainConfig:

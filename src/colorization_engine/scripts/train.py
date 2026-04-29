@@ -1,70 +1,65 @@
 import os
-import torch
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import ModelCheckpoint
 import hydra
 from hydra.core.config_store import ConfigStore
 from hydra.utils import to_absolute_path
 
 from colorization_engine.models import load_colorization_model
 from colorization_engine.utils import TrainConfig
-from colorization_engine.data import get_dataloader
+from colorization_engine.data import ColorizationDataModule
+from colorization_engine.training.lightning_module import LitColorizer
 from colorization_engine.training.losses import ColorizationLoss
-from colorization_engine.training.trainer import ColorizationTrainer
 
 CS = ConfigStore.instance()
 CS.store(name="train_config", node=TrainConfig)
 
 @hydra.main(version_base=None, config_path="../configs", config_name="train")
 def train(config: TrainConfig):
-    device_name = config.device if config.device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
-    device = torch.device(device_name)
+    print("[INFO] Initializing DataModule...")
+    train_paths = [to_absolute_path(p) if isinstance(p, str) else [to_absolute_path(p[0]), to_absolute_path(p[1])] for p in config.data.train]
+    val_paths = [to_absolute_path(p) if isinstance(p, str) else [to_absolute_path(p[0]), to_absolute_path(p[1])] for p in config.data.val] if config.data.val else None
+
+    datamodule = ColorizationDataModule(
+        train_paths=train_paths, val_paths=val_paths,
+        image_size=config.image_size, batch_size=config.training.batch_size
+    )
 
     print(f"[INFO] Loading model {config.model.model_name}...")
     model = load_colorization_model(config.model)
-
-    print(f"[INFO] Loading datasets...")
-    train_paths = [to_absolute_path(p) for p in config.data.train]
-    val_paths = [to_absolute_path(p) for p in config.data.val] if config.data.val else None
-
-    train_loader = get_dataloader(data_paths=train_paths, image_size=config.image_size, is_train=True, batch_size=config.training.batch_size)
-    val_loader = get_dataloader(data_paths=val_paths, image_size=config.image_size, is_train=False, batch_size=config.training.batch_size) if val_paths else None
-
-    print(f"[INFO] Initializing Optimizer & Loss (lr={config.training.lr})")
     criterion = ColorizationLoss(lambda_smooth=config.training.loss_lambda_smooth, lambda_cosine=config.training.loss_lambda_cosine)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config.training.lr, weight_decay=config.training.weight_decay)
 
-    start_epoch = 1
-    best_val_loss = float('inf')
+    lit_model = LitColorizer(model=model, criterion=criterion, lr=config.training.lr, weight_decay=config.training.weight_decay)
 
-    if config.training.resume:
-        resume_path = to_absolute_path(config.training.resume)
-        if os.path.isfile(resume_path):
-            print(f"[INFO] Resuming training from {resume_path}...")
-            checkpoint = torch.load(resume_path, map_location=device)
+    callbacks = []
+    if config.training.do_save:
+        checkpoint_callback = ModelCheckpoint(
+            dirpath=to_absolute_path("checkpoints"),
+            filename=f"{config.model.model_name}-{{epoch:05d}}-{{val_loss:.5f}}",
+            monitor="val/loss",
+            mode="min",
+            save_top_k=3,
+            save_last=True
+        )
+        callbacks.append(checkpoint_callback)
 
-            if 'state_dict' in checkpoint:
-                model.load_state_dict(checkpoint['state_dict'])
-                print("[INFO] Model weights loaded successfully!")
-
-            if 'optimizer_state_dict' in checkpoint:
-                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-
-            start_epoch = checkpoint.get('epoch', 0) + 1
-            best_val_loss = checkpoint.get('val_loss', best_val_loss)
-
-    trainer = ColorizationTrainer(
-        model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        criterion=criterion,
-        optimizer=optimizer,
-        device=device,
-        do_save=config.training.do_save,
-        save_name=config.model.model_name,
-        save_dir="checkpoints",
-        plot_dir="results/train"
+    print("[INFO] Initializing PyTorch Lightning Trainer...")
+    trainer = pl.Trainer(
+        max_epochs=config.training.epochs,
+        accelerator=config.device if config.device else "auto",
+        devices="auto",
+        callbacks=callbacks,
+        log_every_n_steps=4
+        # logger=True # Lightning автоматично створить TensorBoard логер!
     )
 
-    trainer.fit(epochs=config.training.epochs, start_epoch=start_epoch, best_val_loss=best_val_loss)
+    resume_path = to_absolute_path(config.training.resume) if config.training.resume else None
+    if resume_path and os.path.isfile(resume_path):
+        print(f"[INFO] Resuming training from {resume_path}...")
+    else:
+        resume_path = None
+
+    trainer.fit(model=lit_model, datamodule=datamodule, ckpt_path=resume_path)
 
 if __name__ == "__main__":
     train()
