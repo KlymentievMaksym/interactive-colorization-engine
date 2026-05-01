@@ -26,31 +26,40 @@ def train(config: TrainConfig):
     )
 
     print(f"[INFO] Loading model {config.model.model_name}...")
-    model = load_colorization_model(config.model)
-    criterion = ColorizationLoss(lambda_smooth=config.training.loss_lambda_smooth, lambda_cosine=config.training.loss_lambda_cosine)
+    model = config.model
+    model = load_colorization_model(model_name=model.model_name, weights=model.weights, model_params=model.model_params, device=config.device)
+    # criterion = ColorizationLoss(lambda_l1=config.training.loss_lambda_l1, lambda_cos=config.training.loss_lambda_cos, lambda_sat=config.training.loss_lambda_sat, color_weight=config.training.loss_color_weight)
+    criterion = ColorizationLoss(device=config.device)
 
-    lit_model = LitColorizer(model=model, criterion=criterion, lr=config.training.lr, weight_decay=config.training.weight_decay)
+    lit_model = LitColorizer(model=model, criterion=criterion, lr=config.training.lr, weight_decay=config.training.weight_decay, amount_show=config.training.amount_show)
 
     callbacks = []
     if config.training.do_save:
-        checkpoint_callback = ModelCheckpoint(
+        checkpoint_best = ModelCheckpoint(
             dirpath=to_absolute_path("checkpoints"),
-            filename=f"{config.model.model_name}-{{epoch:05d}}-{{val_loss:.5f}}",
-            monitor="val/loss",
+            filename=f"{config.model.model_name}-best-{{epoch:02d}}-{{val_loss:.4f}}",
+            monitor="val_loss",
             mode="min",
             save_top_k=3,
-            save_last=True
+            save_last=True,
+            save_weights_only=True
         )
-        callbacks.append(checkpoint_callback)
+        
+        checkpoint_last = ModelCheckpoint(
+            dirpath=to_absolute_path("checkpoints"),
+            filename="train_last",
+            save_on_train_epoch_end=True
+        )
+        
+        callbacks.extend([checkpoint_best, checkpoint_last])
 
     print("[INFO] Initializing PyTorch Lightning Trainer...")
     trainer = pl.Trainer(
         max_epochs=config.training.epochs,
         accelerator=config.device if config.device else "auto",
-        devices="auto",
         callbacks=callbacks,
-        log_every_n_steps=4
-        # logger=True # Lightning автоматично створить TensorBoard логер!
+        log_every_n_steps=4,
+        val_check_interval=1.0
     )
 
     resume_path = to_absolute_path(config.training.resume) if config.training.resume else None

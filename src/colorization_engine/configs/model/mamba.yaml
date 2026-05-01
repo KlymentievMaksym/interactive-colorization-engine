@@ -1,6 +1,10 @@
 model_name: "mamba"
-weights: null #checkpoints/latest_mamba.pth
+weights: checkpoints/mamba-best-epoch=98-val_loss=0.2923.ckpt
+# weights: checkpoints/mamba-epoch=00123-val_loss=0.37805.ckpt
+# weights: checkpoints/mamba-epoch=00240-val_loss=0.37982.ckpt
 model_params:
   d_model: 256
-  layers: 6
+  # layers: 18
+  layers: 8
+  # blocks: 3
   blocks: 2

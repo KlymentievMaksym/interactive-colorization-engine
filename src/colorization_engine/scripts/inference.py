@@ -10,8 +10,7 @@ from hydra.utils import to_absolute_path
 
 from colorization_engine.models import load_colorization_model
 from colorization_engine.utils import InferenceConfig
-from colorization_engine.data.transforms import get_transforms
-from colorization_engine.data.dataset import _rgb_to_lab, _rgb_to_l_norm
+from colorization_engine.utils.color_space import rgb_to_lab, normalize_l, denormalize_ab
 
 class ColorizationPipeline:
     """
@@ -23,57 +22,54 @@ class ColorizationPipeline:
         self.model = model.to(self.device)
         self.model.eval()
         self.image_size = image_size
-        self.transform = get_transforms(image_size=self.image_size, is_train=False)
 
     def preprocess(self, image: np.ndarray, hints: np.ndarray | None = None):
-        # img = cv2.imread(image_path)
-        # if img is None:
-        #     raise FileNotFoundError(f"[ERROR] Image not found: {image_path}")
-
         orig_h, orig_w = image.shape[:2]
-        # image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        L_channel = _rgb_to_lab(image)[:, :, 0]
+        image_lab = rgb_to_lab(image)
+        L_channel = image_lab[:, :, 0] # [H, W]
 
-        img_resized = self.transform(image=image)['image']
-        tensor_l = _rgb_to_l_norm(img_resized).unsqueeze(0)
+        l_channel = cv2.resize(L_channel, (self.image_size, self.image_size))  # [IS, IS]
+        tensor_l = normalize_l(l_channel).unsqueeze(0)  # [1, 1, IS, IS]
 
         tensor_hints = None
         if hints is not None:
             # RGBA numpy array [H, W, 4] з Gradio
             hints_resized = cv2.resize(hints, (self.image_size, self.image_size), interpolation=cv2.INTER_NEAREST)
 
-            hints_rgb = hints_resized[:, :, :3]
-            hints_alpha = hints_resized[:, :, 3]
+            hints_rgb = hints_resized[:, :, :3] # [IS, IS, 3]
+            hints_alpha = hints_resized[:, :, 3] # [IS, IS]
 
-            hints_lab = _rgb_to_lab(hints_rgb)
+            hints_lab = rgb_to_lab(hints_rgb)
 
-            ab_norm = (hints_lab[:, :, 1:] / 110.0)
+            ab_norm = (hints_lab[:, :, 1:] / 110.0) # [IS, IS, 2]
 
-            mask = (hints_alpha > 0).astype(np.float32)[..., np.newaxis]
+            mask = (hints_alpha > 0).astype(np.float32)[..., np.newaxis] # [IS, IS, 1]
 
+            # [IS, IS, 2] + [IS, IS, 1] -> [IS, IS, 3]
             hints_combined = np.concatenate([ab_norm, mask], axis=-1)
 
-            # [H, W, 3] -> [3, H, W] -> [1, 3, H, W]
+            # [IS, IS, 3] -> [3, IS, IS] -> [1, 3, IS, IS]
             tensor_hints = torch.from_numpy(hints_combined).permute(2, 0, 1).unsqueeze(0).float()
 
+        # [1, 1, IS, IS], [1, 3, IS, IS], [H, W],  [H, W, 3], (H, W)
         return tensor_l, tensor_hints, L_channel, image, (orig_h, orig_w)
 
     def postprocess(self, L_channel: np.ndarray, tensor_ab: torch.Tensor, orig_shape: tuple) -> np.ndarray:
-        orig_h, orig_w = orig_shape
+        orig_h, orig_w = orig_shape  # (H, W)
 
-        tensor_ab = tensor_ab.squeeze(0).cpu().detach()
-        ab_denorm = tensor_ab.permute(1, 2, 0).numpy() * 110.0
+        ab_denorm = denormalize_ab(tensor_ab.squeeze(0))  # [IS, IS, 2]
 
-        ab_upscaled = cv2.resize(ab_denorm, (orig_w, orig_h), interpolation=cv2.INTER_CUBIC)
+        ab_upscaled = cv2.resize(ab_denorm, (orig_w, orig_h), interpolation=cv2.INTER_CUBIC)  # [H, W, 2]
 
-        lab_result = np.zeros((orig_h, orig_w, 3), dtype=np.float32)
+        # [H, W, 2] + [H, W, 1] -> [H, W, 3]
+        lab_result = np.empty((orig_h, orig_w, 3), dtype=np.float32)
         lab_result[:, :, 0] = L_channel
         lab_result[:, :, 1:] = ab_upscaled
-
         rgb_result = cv2.cvtColor(lab_result, cv2.COLOR_LAB2RGB)
         rgb_result = (rgb_result * 255.0).clip(0, 255).astype(np.uint8)
 
+        # [H, W, 3]
         return rgb_result
 
     @torch.no_grad()
@@ -84,9 +80,12 @@ class ColorizationPipeline:
         """
         input_tensor, tensor_hints, L_channel, original_rgb, orig_shape = self.preprocess(image, hints)
 
-        output_ab = self.model(input_tensor.to(self.device), tensor_hints.to(self.device) if tensor_hints is not None else hints)
+        tensor_hints = tensor_hints.to(self.device) if tensor_hints is not None else None
+
+        output_ab = self.model(input_tensor.to(self.device), tensor_hints)
 
         rgb_result = self.postprocess(L_channel, output_ab, orig_shape)
+        # [H, W, 3], [H, W, 3]
         return rgb_result, original_rgb
 
 
@@ -119,11 +118,12 @@ def inference(config: InferenceConfig):
     device = torch.device(device_name)
 
     print(f"[INFO] Loading model {config.model.model_name}...")
-    model = load_colorization_model(config.model, device=device)
+    model = config.model
+    model = load_colorization_model(model_name=model.model_name, weights=model.weights, model_params=model.model_params, device=device)
     pipeline = ColorizationPipeline(model=model, device=device, image_size=config.image_size)
 
-    print(f"[INFO] Found {len(image_paths)} images. Starting colorization...")
-    
+    print(f"[INFO] Found {len(image_paths)} images. Starting colorization with image size {config.image_size}...")
+
     for img_path in tqdm(image_paths, desc="Processing Images"):
         img = cv2.imread(img_path)
         if img is None:

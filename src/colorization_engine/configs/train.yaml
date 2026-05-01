@@ -10,13 +10,20 @@ training:
   weight_decay: 1e-4
   epochs: 100
   batch_size: 4
+
   resume: null
   do_save: true
+  amount_show: 4
 
-  loss_lambda_smooth: 0.5
-  loss_lambda_cosine: 1.0
+  # loss_lambda_l1: 0.8
+  # loss_lambda_cos: 0.4
+  # loss_lambda_sat: 1.0
+  # loss_color_weight: 2.0
+
 
 data:
-  train: ["data/coco_train_2017/test100"]
-  val: [["data/NCD/NCD Dataset/Gray", "data/NCD/NCD Dataset/Color"]]
-  test: ["data/coco_val_2017/val_2017"]
+  # train: ["data/coco_train_2017/test100"]
+  train: ["data/coco_train_2017/test1k"]
+  val: ["data/coco_val_2017/val100"]
+  # val: ["data/coco_val_2017/val2017"]
+  test: [["data/NCD/NCD Dataset/Gray", "data/NCD/NCD Dataset/Color"], "data/coco_val_2017/val2017", "data/flowers"]

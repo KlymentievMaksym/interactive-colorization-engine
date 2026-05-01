@@ -1,6 +1,6 @@
 import torch
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict
 
 if TYPE_CHECKING:
     PathType = str | list[str]
@@ -11,7 +11,7 @@ else:
 class ModelNode:
     model_name: str = "mamba"
     weights: str | None = None
-    model_params: dict[str, Any] = field(default_factory=dict)
+    model_params: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class TrainingConfig:
@@ -19,11 +19,15 @@ class TrainingConfig:
     weight_decay: float = 1e-4
     epochs: int = 100
     batch_size: int = 4
+
     resume: str | None = None
     do_save: bool = True
+    amount_show: int = 4
 
-    loss_lambda_smooth: float = 0.5
-    loss_lambda_cosine: float = 1.0
+    # loss_lambda_l1: float = 1.0
+    # loss_lambda_cos: float = 0.5
+    # loss_lambda_sat: float = 1.0
+    # loss_color_weight: float = 2.0
 
 @dataclass
 class DataConfig:
