@@ -14,20 +14,21 @@ class ModelNode:
     model_params: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
+class LossNode:
+    loss_name: str = "colorization"
+    loss_params: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
 class TrainingConfig:
     lr: float = 1e-4
     weight_decay: float = 1e-4
     epochs: int = 100
     batch_size: int = 4
+    num_workers: int = 4
 
     resume: str | None = None
     do_save: bool = True
     amount_show: int = 4
-
-    # loss_lambda_l1: float = 1.0
-    # loss_lambda_cos: float = 0.5
-    # loss_lambda_sat: float = 1.0
-    # loss_color_weight: float = 2.0
 
 @dataclass
 class DataConfig:
@@ -43,6 +44,7 @@ class MainConfig:
 
 @dataclass
 class TrainConfig(MainConfig):
+    loss: LossNode = field(default_factory=LossNode)
     training: TrainingConfig = field(default_factory=TrainingConfig)
     data: DataConfig = field(default_factory=DataConfig)
 

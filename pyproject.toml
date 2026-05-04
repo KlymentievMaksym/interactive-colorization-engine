@@ -18,7 +18,7 @@ dependencies = [
 
     "numpy",
     "scipy",
-    # "scikit-learn",
+    "scikit-learn", # 
 
     "tqdm",
     "matplotlib",
@@ -31,10 +31,14 @@ dependencies = [
     "lightning",
     "torchvision",
     "torchmetrics",
+    "kornia",
     "mamba-ssm",
 
     "IPython",
     "timm",
+
+    "open_clip_torch",
+    # "xformers",
 ]
 
 [project.optional-dependencies]
