@@ -1,0 +1,5 @@
+loss_name: "colorization"
+loss_params:
+  lpips_weight: 2.0
+  l1_weight: 5.0
+  hints_weight: 50.0
