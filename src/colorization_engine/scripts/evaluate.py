@@ -9,7 +9,7 @@ from hydra.core.config_store import ConfigStore
 from hydra.utils import to_absolute_path
 
 from colorization_engine.evaluation.metrics import ColorizationMetrics
-from colorization_engine.models import load_colorization_model
+from colorization_engine.factory import build_model_pipeline
 # ВИПРАВЛЕННЯ 1: Використовуємо існуючий DataModule замість неіснуючої функції
 from colorization_engine.data import ColorizationDataModule
 from colorization_engine.utils import EvaluateConfig
@@ -85,9 +85,9 @@ def evaluate(config: EvaluateConfig):
     device = torch.device(config.device if config.device else ("cuda" if torch.cuda.is_available() else "cpu"))
     
     print(f"[INFO] Loading model {config.model.model_name}...")
-    model = load_colorization_model(
+    model = build_model_pipeline(
         model_name=config.model.model_name, 
-        weights=config.model.weights, 
+        weights_path=config.model.weights, 
         model_params=config.model.model_params, 
         device=device
     )
@@ -124,7 +124,7 @@ def evaluate(config: EvaluateConfig):
         dataloader = datamodule.val_dataloader()
         
     if dataloader is None:
-        raise RuntimeError("[CRITICAL] DataLoader is still None. Перевірте логіку ColorizationDataModule.setup()")
+        raise RuntimeError("DataLoader is still None. Перевірте логіку ColorizationDataModule.setup()")
 
     metrics = ColorizationMetrics(device)
 

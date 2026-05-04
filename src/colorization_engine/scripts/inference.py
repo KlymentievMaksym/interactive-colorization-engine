@@ -8,7 +8,7 @@ import hydra
 from hydra.core.config_store import ConfigStore
 from hydra.utils import to_absolute_path
 
-from colorization_engine.models import load_colorization_model
+from colorization_engine.factory import build_model_pipeline
 from colorization_engine.utils import InferenceConfig
 from colorization_engine.utils.color_space import rgb_to_lab, normalize_l, denormalize_ab
 
@@ -118,8 +118,8 @@ def inference(config: InferenceConfig):
     device = torch.device(device_name)
 
     print(f"[INFO] Loading model {config.model.model_name}...")
-    model = config.model
-    model = load_colorization_model(model_name=model.model_name, weights=model.weights, model_params=model.model_params, device=device)
+    model_config = config.model
+    model = build_model_pipeline(model_name=model_config.model_name, weights_path=model_config.weights, model_params=model_config.model_params, device=device)
     pipeline = ColorizationPipeline(model=model, device=device, image_size=config.image_size)
 
     print(f"[INFO] Found {len(image_paths)} images. Starting colorization with image size {config.image_size}...")
