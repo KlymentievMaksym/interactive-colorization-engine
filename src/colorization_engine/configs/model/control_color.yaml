@@ -1,0 +1,7 @@
+model_name: "control_color"
+weights: null
+model_params:
+  config_path: "models/cldm_v15_inpainting_infer1.yaml"
+  ckpt_path: "models/main_model.ckpt"
+  vae_path: "models/content-guided_deformable_vae.ckpt"
+  base_resolution: 512
