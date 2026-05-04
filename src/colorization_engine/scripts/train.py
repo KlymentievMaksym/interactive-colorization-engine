@@ -16,7 +16,6 @@ from colorization_engine.factory import build_model_pipeline, build_loss
 from colorization_engine.utils import TrainConfig
 from colorization_engine.data import ColorizationDataModule
 from colorization_engine.training.lightning_module import LitColorizer
-from colorization_engine.training.losses import ColorizationLoss
 
 CS = ConfigStore.instance()
 CS.store(name="train_config", node=TrainConfig)
