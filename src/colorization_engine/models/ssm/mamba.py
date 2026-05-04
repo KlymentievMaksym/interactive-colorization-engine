@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
+
 from colorization_engine.models.util_models import MambaShared, BaseColorizer
+from colorization_engine.factory.registry import register_model
+
 
 class DoubleConv(nn.Module):
     """Допоміжний блок для поглиблення рецептивного поля без втрати роздільної здатності"""
@@ -18,6 +21,7 @@ class DoubleConv(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.conv(x)
 
+@register_model("mamba")
 class MambaWrapper(BaseColorizer):
     def __init__(self, d_model: int = 256, layers: int = 6, blocks: int = 2):
         super().__init__()

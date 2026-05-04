@@ -2,13 +2,16 @@ import torch
 import torch.nn as nn
 
 from colorization_engine.models.util_models import BaseColorizer
-from colorization_engine.models.util_models.colorizers.colorizers import eccv16 
+from colorization_engine.models.util_models.colorizers.colorizers import siggraph17 
+from colorization_engine.factory.registry import register_model
 
-class Eccv16Wrapper(BaseColorizer):
+
+@register_model("siggraph17")
+class Siggraph17Wrapper(BaseColorizer):
     def __init__(self, pretrained: bool = True, **kwargs):
         super().__init__()
 
-        self.model = eccv16(pretrained=pretrained)
+        self.model = siggraph17(pretrained=pretrained)
         
         # self.model.eval()
         # for param in self.model.parameters():
@@ -22,7 +25,15 @@ class Eccv16Wrapper(BaseColorizer):
         # [-1, 1] -> [0, 100]
         l_zhang = (l_norm + 1.0) * 50.0
 
-        ab_raw = self.model(l_zhang)
+        if hints is None:
+            ab_raw = self.model(l_zhang)
+        else:
+            ab_hints_norm = hints[:, 0:2, :, :]
+            mask_b = hints[:, 2:3, :, :]
+
+            input_b = ab_hints_norm * 110.0
+
+            ab_raw = self.model(l_zhang, input_B=input_b, mask_B=mask_b)
 
         # ~[-110, 110] -> [-1, 1]
         ab_pred = ab_raw / 110.0

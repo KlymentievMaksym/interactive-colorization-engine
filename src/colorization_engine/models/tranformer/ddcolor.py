@@ -6,7 +6,10 @@ import torch.nn.functional as F
 from ddcolor.model import DDColor
 from ddcolor.pipeline import build_ddcolor_model
 from colorization_engine.models.util_models import BaseColorizer
+from colorization_engine.factory.registry import register_model
 
+
+@register_model("ddcolor")
 class DDColorWrapper(BaseColorizer):
     def __init__(self, model_size: str = "tiny", weights_path: str = "models/ddcolor_paper_tiny.pth"):
         super().__init__()

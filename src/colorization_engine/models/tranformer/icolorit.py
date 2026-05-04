@@ -14,7 +14,10 @@ from einops import rearrange
 
 from colorization_engine.models.util_models import BaseColorizer
 from colorization_engine.models.util_models.iColoriT.modeling import icolorit_base_4ch_patch16_224
+from colorization_engine.factory.registry import register_model
 
+
+@register_model("icolorit")
 class IColoriTWrapper(BaseColorizer):
     def __init__(self, weights_path: str = "models/icolorit_base_4ch_patch16_224.pth"):
         super().__init__()
