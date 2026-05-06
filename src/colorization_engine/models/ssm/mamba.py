@@ -6,7 +6,6 @@ from colorization_engine.factory.registry import register_model
 
 
 class DoubleConv(nn.Module):
-    """Допоміжний блок для поглиблення рецептивного поля без втрати роздільної здатності"""
     def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
         self.conv = nn.Sequential(
@@ -37,25 +36,23 @@ class MambaWrapper(BaseColorizer):
         self.enc3 = DoubleConv(128, d_model)
         self.pool3 = nn.Conv2d(d_model, d_model, kernel_size=4, stride=2, padding=1) # H/8
 
-        # --- BOTTLENECK (Mamba) ---
-        # Тепер Mamba працює на значно меншій роздільній здатності H/8 x W/8
-        # Це експоненційно зменшує використання VRAM та дозволяє моделі бачити глобальний контекст
+        # --- Mamba ---
         self.mamba = MambaShared(d_model=d_model, layers=layers, blocks=blocks)
 
         # --- DECODER ---
         self.up3 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.dec3 = DoubleConv(d_model + d_model, 128) # Concat з enc3
+        self.dec3 = DoubleConv(d_model + d_model, 128) # Concat enc3
 
         self.up2 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.dec2 = DoubleConv(128 + 128, 64) # Concat з enc2
+        self.dec2 = DoubleConv(128 + 128, 64) # Concat enc2
 
         self.up1 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.dec1 = DoubleConv(64 + 64, 64) # Concat з enc1
+        self.dec1 = DoubleConv(64 + 64, 64) # Concat enc1
 
         # --- FINAL LAYER ---
         self.final_conv = nn.Sequential(
             nn.Conv2d(64, 2, kernel_size=1),
-            nn.Tanh() # Обмежуємо вихід у діапазоні [-1, 1] для каналів a та b
+            nn.Tanh() # [-1, 1]
         )
 
     def forward(self, l_norm: torch.Tensor, hints: torch.Tensor | None = None) -> torch.Tensor:
@@ -66,11 +63,9 @@ class MambaWrapper(BaseColorizer):
         batch_size, _, height, width = l_norm.shape
         device = l_norm.device
 
-        # Захист: якщо підказок немає (наприклад, під час повного автоматичного інференсу)
         if hints is None:
             hints = torch.zeros((batch_size, 3, height, width), device=device)
-            
-        # x_in матиме 4 канали, що ідеально підходить для першого шару: nn.Conv2d(4, 64, ...)
+
         x_in = torch.cat([l_norm, hints], dim=1)
         
         # --- ENCODER FORWARD ---

@@ -8,7 +8,7 @@ from colorization_engine.factory.registry import register_model
 
 @register_model("eccv16")
 class Eccv16Wrapper(BaseColorizer):
-    def __init__(self, pretrained: bool = True, **kwargs):
+    def __init__(self, pretrained: bool = True):
         super().__init__()
 
         self.model = eccv16(pretrained=pretrained)

@@ -58,10 +58,12 @@ class ControlColorWrapper(BaseColorizer):
             config_path: str = './models/cldm_v15_inpainting_infer1.yaml', 
             ckpt_path: str = './pretrained_models/main_model.ckpt',
             vae_path: Optional[str] = './pretrained_models/content-guided_deformable_vae.ckpt',
-            base_resolution: int = 512
+            base_resolution: int = 512,
+            inference_steps: int = 20
         ):
         super().__init__()
         self.base_res = base_resolution
+        self.inference_steps = inference_steps
         
         # 1. Завантаження моделі (ControlNet + SD 1.5)
         self.model = create_model(config_path)
@@ -184,7 +186,7 @@ class ControlColorWrapper(BaseColorizer):
 
         samples, _ = self.sampler.sample(
             model=self.model,
-            S=20, # DDIM steps (оптимально для балансу швидкість/якість)
+            S=self.inference_steps,
             batch_size=B,
             shape=shape,
             conditioning=cond,
@@ -208,8 +210,19 @@ class ControlColorWrapper(BaseColorizer):
             # Це імітує поведінку numpy-масиву, під який писався Deformable VAE
             gray_input_for_vae = control_rgb[0].permute(1, 2, 0)
             
-            gray_content_z = self.vae_model.get_gray_content_z(gray_input_for_vae)
-            x_samples_rgb = self.vae_model.decode(samples_before_vae, gray_content_z)
+            x_samples_rgb_list = []
+            for i in range(B):
+                gray_input_for_vae = control_rgb[i].permute(1, 2, 0) # [H, W, C]
+                gray_content_z = self.vae_model.get_gray_content_z(gray_input_for_vae)
+                
+                # Decode just this single item (keep batch dim of 1)
+                single_sample = samples_before_vae[i:i+1] 
+                decoded_rgb = self.vae_model.decode(single_sample, gray_content_z)
+                x_samples_rgb_list.append(decoded_rgb)
+                
+            x_samples_rgb = torch.cat(x_samples_rgb_list, dim=0)
+            # gray_content_z = self.vae_model.get_gray_content_z(gray_input_for_vae)
+            # x_samples_rgb = self.vae_model.decode(samples_before_vae, gray_content_z)
             # -----------------------------------------------
         else:
             x_samples_rgb = self.model.decode_first_stage(samples)

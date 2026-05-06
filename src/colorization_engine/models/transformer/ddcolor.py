@@ -15,15 +15,13 @@ class DDColorWrapper(BaseColorizer):
         super().__init__()
         
         self.img_size = 512 # DDColor relies heavily on 512x512
-        
-        # Build the model exactly as the authors intended
+
         self.model = build_ddcolor_model(
-            DDColor, 
+            DDColor,
             model_path=weights_path, 
             model_size=model_size,
             input_size=self.img_size
         )
-        self.model.eval()
 
     def _l_to_rgb(self, L: torch.Tensor) -> torch.Tensor:
         """
@@ -44,7 +42,6 @@ class DDColorWrapper(BaseColorizer):
         # Repeat 3 times to create [B, 3, H, W]
         return RGB.repeat(1, 3, 1, 1)
 
-    @torch.no_grad()
     def forward(self, l_norm: torch.Tensor, hints: torch.Tensor | None = None) -> torch.Tensor:
         batch_size, _, height, width = l_norm.shape
 
@@ -61,6 +58,7 @@ class DDColorWrapper(BaseColorizer):
         ab_pred_512 = self.model(tensor_gray_rgb)
 
         ab_pred_norm = ab_pred_512 / 110.0
+        ab_pred_norm = torch.clamp(ab_pred_norm, min=-1.0, max=1.0)
 
         if height != self.img_size or width != self.img_size:
             ab_pred_final = F.interpolate(ab_pred_norm, size=(height, width), mode='bilinear', align_corners=False)

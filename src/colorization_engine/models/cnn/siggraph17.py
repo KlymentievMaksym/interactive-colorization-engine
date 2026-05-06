@@ -8,7 +8,7 @@ from colorization_engine.factory.registry import register_model
 
 @register_model("siggraph17")
 class Siggraph17Wrapper(BaseColorizer):
-    def __init__(self, pretrained: bool = True, **kwargs):
+    def __init__(self, pretrained: bool = True):
         super().__init__()
 
         self.model = siggraph17(pretrained=pretrained)

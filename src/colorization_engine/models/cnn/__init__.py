@@ -1,0 +1,2 @@
+from colorization_engine.models.cnn.eccv16 import Eccv16Wrapper
+from colorization_engine.models.cnn.siggraph17 import Siggraph17Wrapper

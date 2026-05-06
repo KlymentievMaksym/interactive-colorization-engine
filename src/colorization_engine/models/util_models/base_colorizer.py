@@ -10,9 +10,9 @@ class BaseColorizer(nn.Module, ABC):
     @abstractmethod
     def forward(self, l_channel: torch.Tensor, hints: torch.Tensor | None = None) -> torch.Tensor:
         """
-        l_channel: Tensor форми [B, 1, H, W], нормований у [0, 100] (L канал LAB)
-        hints: Tensor форми [B, 3, H, W] (маска + a/b значення) або None
-        Returns: Tensor форми [B, 2, H, W], нормований у [-128, 127] (a/b канали)
+        l_channel: Tensor форми [B, 1, H, W] [-1, 1] (L)
+        hints: Tensor форми [B, 3, H, W] (ab + mask) or None
+        Returns: Tensor форми [B, 2, H, W] [-1, 1] (ab)
         """
         pass
 
