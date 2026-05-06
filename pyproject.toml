@@ -44,7 +44,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "pytest-benchmark"
+    "pytest-benchmark",
+    "pytest-cov",
 ]
 
 [project.urls]
