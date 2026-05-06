@@ -1,6 +1,7 @@
 from colorization_engine.loss.base_loss import BaseLoss
 
 from colorization_engine.loss.colorization import ColorizationLoss
+from colorization_engine.loss.l1 import L1Loss
 
 # import importlib
 # import pkgutil
