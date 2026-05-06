@@ -1,6 +1,6 @@
 model_name: "mamba"
 # weights: checkpoints/mamba-best-epoch=499-val_loss=0.1608.ckpt
-weights: checkpoints/mamba.ckpt
+weights: checkpoints/mamba2.ckpt
 model_params:
   d_model: 256
   # layers: 18

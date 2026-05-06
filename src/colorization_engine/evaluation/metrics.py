@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torchmetrics import MetricCollection
 from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
-from torchmetrics.regression import MeanSquaredError
+from torchmetrics.regression import MeanSquaredError, MeanAbsoluteError
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 
 class ColorizationMetrics(nn.Module):
@@ -11,17 +11,15 @@ class ColorizationMetrics(nn.Module):
     УВАГА: Всі вхідні тензори ПОВИННІ бути конвертовані у простір RGB 
     з діапазоном значень [0.0, 1.0] перед передачею у метод update().
     """
-    def __init__(self, device: torch.device):
+    def __init__(self, device: torch.device | str):
         super().__init__()
         self.device = device
-        
-        # Фіксуємо data_range=1.0 для простору RGB.
+
         self.metrics = MetricCollection({
             "psnr": PeakSignalNoiseRatio(data_range=1.0),
             "ssim": StructuralSimilarityIndexMeasure(data_range=1.0),
             "mse": MeanSquaredError(),
-            # LPIPS є стандартом де-факто для генеративних задач (CVPR, ICCV).
-            # normalize=True дозволяє передавати тензори [0, 1], модуль сам переведе їх у [-1, 1] для VGG.
+            "mae": MeanAbsoluteError(),
             "lpips": LearnedPerceptualImagePatchSimilarity(net_type='vgg', normalize=True)
         }).to(self.device)
 

@@ -14,7 +14,7 @@ import colorization_engine.models
 
 LOGGER = logging.getLogger("ModelFactory")
 
-def build_model(model_name: str, model_params: Dict[str, Any] | None) -> nn.Module:
+def build_model(model_name: str, model_params: Dict[str, Any] | None = None) -> nn.Module:
     model_name_lower = model_name.lower()
     if model_name_lower not in MODEL_REGISTRY:
         raise NameError(f"Model {model_name_lower} not found in model registry. Expected {list(MODEL_REGISTRY.keys())}")

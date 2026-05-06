@@ -5,3 +5,4 @@ model_params:
   ckpt_path: "models/main_model.ckpt"
   vae_path: "models/content-guided_deformable_vae.ckpt"
   base_resolution: 512
+  inference_steps: 20
