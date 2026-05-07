@@ -10,3 +10,9 @@
 [submodule "src/colorization_engine/models/util_models/ControlColor"]
 	path = src/colorization_engine/models/util_models/ControlColor
 	url = https://github.com/ZhexinLiang/Control-Color
+[submodule "src/colorization_engine/models/util_models/UniColor"]
+	path = src/colorization_engine/models/util_models/UniColor
+	url = https://github.com/luckyhzt/unicolor
+[submodule "src/colorization_engine/models/util_models/CycleGAN_pix2pix"]
+	path = src/colorization_engine/models/util_models/CycleGAN_pix2pix
+	url = https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix

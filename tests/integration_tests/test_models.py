@@ -19,6 +19,8 @@ SKIP_BY_DEFAULT = os.getenv("SKIP_HEAVY_TESTS", "True") == "True"
     ("eccv16",     {"pretrained": False}),
     ("siggraph17", {"pretrained": False}),
     ("ddcolor",    {"model_size": "tiny", "weights_path": "models/ddcolor_paper_tiny.pth"}),
+    ("pix2pix",    {"ngf": 64, "netG": "unet_256"}),
+    ("controlnet_recolor",    {"inference_steps": 2, "prompt": None, "negative_prompt": None, "device": "cuda"}),
 ])
 @pytest.mark.parametrize("batch_size, height, width", [
     (1, 64, 64),  # just quick check

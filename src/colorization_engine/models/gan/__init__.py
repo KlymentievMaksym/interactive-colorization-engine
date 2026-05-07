@@ -1,1 +1,1 @@
-# from colorization_engine.models.gan. import
+from colorization_engine.models.gan.pix2pix import Pix2pixWrapper

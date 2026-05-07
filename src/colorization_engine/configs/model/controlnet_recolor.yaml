@@ -1,0 +1,7 @@
+model_name: "controlnet_recolor"
+weights: null
+model_params:
+  inference_steps: 20
+  prompt: null
+  negative_prompt: null
+  device: "cuda"

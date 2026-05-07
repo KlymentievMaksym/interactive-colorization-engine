@@ -1,1 +1,2 @@
 from colorization_engine.models.diffusion.control_color import ControlColorWrapper
+from colorization_engine.models.diffusion.controlnet_recolor import ControlNetRecolorWrapper

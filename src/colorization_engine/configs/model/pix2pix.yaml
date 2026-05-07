@@ -1,0 +1,6 @@
+model_name: "pix2pix"
+# weights: null
+weights: "checkpoints/pix2pix.ckpt"
+model_params:
+  ngf: 64
+  netG: "unet_256"
