@@ -92,6 +92,13 @@ class LitColorizer(pl.LightningModule):
 
         self.val_metrics = metrics.clone(prefix="val/")
         self.test_metrics = metrics.clone(prefix="test/")
+        self.strict_loading = False 
+
+    def on_save_checkpoint(self, checkpoint: dict) -> None:
+        """Strip the LPIPS metric weights from the checkpoint to prevent bloat."""
+        keys_to_remove = [k for k in checkpoint["state_dict"].keys() if "lpips_metric" in k]
+        for k in keys_to_remove:
+            del checkpoint["state_dict"][k]
 
     def forward(self, l_norm: torch.Tensor, hints: torch.Tensor | None = None) -> torch.Tensor:
         return self.model(l_norm, hints)

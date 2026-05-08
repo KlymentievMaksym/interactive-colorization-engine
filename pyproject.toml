@@ -38,7 +38,11 @@ dependencies = [
     "timm",
 
     "open_clip_torch",
+    # "git+https://github.com/openai/CLIP.git",
     # "xformers",
+    "diffusers",
+    "transformers",
+    "accelerate",
 ]
 
 [project.optional-dependencies]

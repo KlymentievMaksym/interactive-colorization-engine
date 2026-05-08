@@ -138,7 +138,23 @@ def inference(config: InferenceConfig):
             image_gray = cv2.cvtColor(gray_original, cv2.COLOR_GRAY2BGR)
             image_original = cv2.cvtColor(original_rgb, cv2.COLOR_RGB2BGR)
 
-            comparison = np.hstack((image_gray, bgr_result, image_original))
+            delta_ab = torch.sqrt((torch.from_numpy(rgb_result) - torch.from_numpy(original_rgb)).pow(2).sum(dim=1, keepdim=True))
+
+            t_res = torch.from_numpy(rgb_result).float() / 255.0
+            t_orig = torch.from_numpy(original_rgb).float() / 255.0
+            delta_ab = torch.sqrt((t_res - t_orig).pow(2).sum(dim=-1, keepdim=True))
+
+            error_norm = (delta_ab * 1.5).clamp(0, 1)
+            r = (error_norm * 3.0).clamp(0, 1)
+            g = ((error_norm - 0.333) * 3.0).clamp(0, 1)
+            b = ((error_norm - 0.666) * 3.0).clamp(0, 1)
+            
+            error = torch.cat([r, g, b], dim=-1).numpy()
+            
+            error_uint8 = (error * 255.0).astype(np.uint8)
+            image_error = cv2.cvtColor(error_uint8, cv2.COLOR_RGB2BGR)
+
+            comparison = np.hstack((image_gray, bgr_result, image_original, image_error))
 
             result_path = out_dir / f"result_{img_path.name}"
             cv2.imwrite(str(result_path), comparison)

@@ -11,15 +11,15 @@ training:
   weight_decay: 1e-4
   epochs: 8
   batch_size: 16
-  num_workers: 6
+  num_workers: 4
 
   resume: null
   do_save: true
   amount_show: 4
 
 data:
-  # train: ["data/coco_train_2017/test100"]
-  # train: ["data/coco_train_2017/test1k"]
+  # train: ["data/coco_train_2017/train100"]
+  # train: ["data/coco_train_2017/train1k"]
   train: ["data/coco_train_2017/train2017"]
   # val: ["data/coco_val_2017/val100"]
   val: ["data/coco_val_2017/val2017"]

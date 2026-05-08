@@ -24,8 +24,8 @@ class ColorizationLoss(BaseLoss):
         self.l1_loss = nn.L1Loss()
 
         self.lpips_metric = LearnedPerceptualImagePatchSimilarity(net_type="vgg", normalize=True)
-        # self.lpips_metric = [LearnedPerceptualImagePatchSimilarity(net_type="vgg", normalize=True)]
         self.lpips_metric.requires_grad_(False)
+        # self.lpips_metric = [LearnedPerceptualImagePatchSimilarity(net_type="vgg", normalize=True)]
         # self.lpips_metric[0].requires_grad_(False)
 
     def forward(self, pred: torch.Tensor, target: torch.Tensor, l_channel: torch.Tensor, hint_mask: torch.Tensor | None = None) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
