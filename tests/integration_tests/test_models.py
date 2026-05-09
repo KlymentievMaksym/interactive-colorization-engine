@@ -9,7 +9,7 @@ from colorization_engine.factory.model_factory import build_model_pipeline
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-GPU_ONLY = ["mamba", "control_color"]
+GPU_ONLY = ["mamba"]
 WEIGHTS_REQUIRED = ["ddcolor"]
 
 SKIP_BY_DEFAULT = os.getenv("SKIP_HEAVY_TESTS", "True") == "True"
@@ -20,7 +20,7 @@ SKIP_BY_DEFAULT = os.getenv("SKIP_HEAVY_TESTS", "True") == "True"
     ("siggraph17", {"pretrained": False}),
     ("ddcolor",    {"model_size": "tiny", "weights_path": "models/ddcolor_paper_tiny.pth"}),
     ("pix2pix",    {"ngf": 64, "netG": "unet_256"}),
-    ("controlnet_recolor",    {"inference_steps": 2, "prompt": None, "negative_prompt": None, "device": "cuda"}),
+    # ("unicolor",    {"ckpt_path": "models/mscoco_step259999", "device": "cuda"}),
 ])
 @pytest.mark.parametrize("batch_size, height, width", [
     (1, 64, 64),  # just quick check
@@ -62,20 +62,16 @@ def test_all_models_forward_pass(model_name, model_params, batch_size, height, w
     SKIP_BY_DEFAULT,
     reason="Diffusion tests are disabled by default to save WSL resources. Set SKIP_HEAVY_TESTS=False to run."
 )
-def test_diffusion_forward_pass():
-    """Isolated, fast test for ControlColor to prevent VRAM OOM."""
+@pytest.mark.parametrize("model_name, model_params", [
+    ("control_color",      {"config_path": "models/cldm_v15_inpainting_infer1.yaml", "ckpt_path": "models/main_model.ckpt", "vae_path": "models/content-guided_deformable_vae.ckpt", "base_resolution": 512, "inference_steps": 2}),
+    ("controlnet_recolor", {"inference_steps": 2, "prompt": None, "negative_prompt": None, "device": "cuda"}),
+])
+def test_diffusion_forward_pass(model_name, model_params):
+    """Isolated test for diffusion to prevent WSL shutdown."""
     if DEVICE.type == "cpu":
         pytest.skip("Diffusion requires a CUDA-enabled GPU.")
 
-    model_params = {
-        "config_path": "models/cldm_v15_inpainting_infer1.yaml", 
-        "ckpt_path": "models/main_model.ckpt", 
-        "vae_path": "models/content-guided_deformable_vae.ckpt", 
-        "base_resolution": 512, 
-        "inference_steps": 2
-    }
-
-    model = build_model_pipeline(model_name="control_color", weights_path=None, model_params=model_params).to(DEVICE)
+    model = build_model_pipeline(model_name=model_name, weights_path=None, model_params=model_params).to(DEVICE)
     model.eval()
 
     # Enforce Batch Size = 1 to avoid the author's cldm.py bug

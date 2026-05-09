@@ -24,6 +24,7 @@ def test_datamodule_setup_and_dataloader(dummy_dataset_dir):
         train_paths=[dummy_dataset_dir],
         val_paths=[dummy_dataset_dir],
         image_size=256,
+        hint_size=8,
         batch_size=2,
         num_workers=0
     )
