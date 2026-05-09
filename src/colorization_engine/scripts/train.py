@@ -1,8 +1,16 @@
 import os
 from datetime import datetime
 
+import faulthandler
+faulthandler.enable()
+
+import cv2
+cv2.setNumThreads(0)
+cv2.ocl.setUseOpenCL(False)
+
 import torch
 torch.set_float32_matmul_precision('medium')
+torch.set_num_threads(1)
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
@@ -28,7 +36,8 @@ def train(config: TrainConfig):
 
     datamodule = ColorizationDataModule(
         train_paths=train_paths, val_paths=val_paths,
-        image_size=config.image_size, batch_size=config.training.batch_size, num_workers=config.training.num_workers
+        image_size=config.image_size, hint_size=config.hint_size,
+        batch_size=config.training.batch_size, num_workers=config.training.num_workers, timeout=config.training.timeout
     )
 
     print(f"[INFO] Loading model {config.model.model_name}...")
@@ -78,7 +87,7 @@ def train(config: TrainConfig):
         max_epochs=config.training.epochs,
         accelerator=config.device if config.device else "auto",
         callbacks=callbacks,
-        log_every_n_steps=4,
+        log_every_n_steps=50,
         val_check_interval=1.0
     )
 
