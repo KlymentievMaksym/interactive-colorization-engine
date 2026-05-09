@@ -25,6 +25,7 @@ class TrainingConfig:
     epochs: int = 100
     batch_size: int = 4
     num_workers: int = 4
+    timeout: float=  60
 
     resume: str | None = None
     do_save: bool = True
@@ -39,6 +40,7 @@ class DataConfig:
 @dataclass
 class MainConfig:
     image_size: int = 256
+    hint_size: int = 8
     device: str | None = None
     model: ModelNode = field(default_factory=ModelNode)
 

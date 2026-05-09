@@ -3,10 +3,10 @@ import numpy as np
 import kornia
 # from skimage.color import lab2rgb
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
+# import matplotlib
+# matplotlib.use("Agg")
+# import matplotlib.pyplot as plt
+# from matplotlib.figure import Figure
 
 import torch
 import torch.nn as nn
@@ -15,7 +15,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import torchvision
 from torchmetrics import MetricCollection
-from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure, UniversalImageQualityIndex, LearnedPerceptualImagePatchSimilarity
+from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure, UniversalImageQualityIndex , LearnedPerceptualImagePatchSimilarity
 from torchmetrics.regression import MeanSquaredError
 
 import pytorch_lightning as pl
@@ -87,7 +87,8 @@ class LitColorizer(pl.LightningModule):
             "psnr": PeakSignalNoiseRatio(data_range=1.0),
             "ssim": StructuralSimilarityIndexMeasure(data_range=1.0),
             "mse": MeanSquaredError(),
-            "uiqu": UniversalImageQualityIndex()
+            "uiqu": UniversalImageQualityIndex(),
+            "lpips": LearnedPerceptualImagePatchSimilarity(net_type="vgg", normalize=True)
         })
 
         self.val_metrics = metrics.clone(prefix="val/")
