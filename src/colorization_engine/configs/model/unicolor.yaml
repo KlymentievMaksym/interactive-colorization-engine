@@ -1,0 +1,5 @@
+model_name: "unicolor"
+weights: null
+model_params:
+  ckpt_path: "models/mscoco_step259999"
+  device: "cuda"

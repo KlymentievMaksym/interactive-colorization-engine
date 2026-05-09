@@ -4,6 +4,7 @@ defaults:
   - _self_
 
 image_size: 256
+hint_size: 8
 device: null
 
 training:
@@ -12,6 +13,7 @@ training:
   epochs: 8
   batch_size: 16
   num_workers: 4
+  timeout: 60
 
   resume: null
   do_save: true

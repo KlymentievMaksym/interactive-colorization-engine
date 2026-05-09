@@ -3,6 +3,7 @@ defaults:
   - _self_
 
 image_size: 256
+hint_size: 8
 device: null
 
 batch_size: 4
