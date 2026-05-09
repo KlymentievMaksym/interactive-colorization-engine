@@ -18,7 +18,7 @@ dependencies = [
 
     "numpy",
     "scipy",
-    "scikit-learn", # 
+    "scikit-learn",
 
     "tqdm",
     "matplotlib",
@@ -34,15 +34,17 @@ dependencies = [
     "kornia",
     "mamba-ssm",
 
-    "IPython",
-    "timm",
+    "IPython",  # IcolorIT?
+    "timm",  # IcolorIT?
 
-    "open_clip_torch",
-    # "git+https://github.com/openai/CLIP.git",
-    # "xformers",
-    "diffusers",
-    "transformers",
-    "accelerate",
+    "open_clip_torch",  # control_color?
+    "clip @ git+https://github.com/openai/CLIP.git",  # controlnet_recolor
+    # "xformers",  # control_color
+    "diffusers",  # controlnet_recolor
+    "transformers",  # controlnet_recolor
+    "accelerate",  # controlnet_recolor
+    "nltk",  # unicolor
+    "numba",  # unicolor
 ]
 
 [project.optional-dependencies]
