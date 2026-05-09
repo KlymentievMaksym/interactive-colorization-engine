@@ -28,7 +28,7 @@ def _apply_transform(transform: Compose | None, input: np.ndarray, target: np.nd
 
     return {"input": transformed['image'], "target": target if target is None else transformed['target']}
 
-def _receive_hints(ab_tensor: torch.Tensor, l_tensor: torch.Tensor, point_size: int = 8, training: bool = True) -> torch.Tensor:
+def _receive_hints(ab_tensor: torch.Tensor, l_tensor: torch.Tensor, hint_size: int = 8, training: bool = True) -> torch.Tensor:
     _, h, w = ab_tensor.shape
     device = ab_tensor.device
     mask = torch.zeros((1, h, w), dtype=torch.float32, device=device)
@@ -45,10 +45,10 @@ def _receive_hints(ab_tensor: torch.Tensor, l_tensor: torch.Tensor, point_size: 
         y_coords = torch.tensor([p[0] for p in points], dtype=torch.long)
         x_coords = torch.tensor([p[1] for p in points], dtype=torch.long)
         
-        if point_size == 1:
+        if hint_size == 1:
             mask[0, y_coords, x_coords] = 1.0
         else:
-            pad = point_size // 2
+            pad = hint_size // 2
             for dy in range(-pad, pad + 1):
                 for dx in range(-pad, pad + 1):
                     y_patch = torch.clamp(y_coords + dy, 0, h - 1)

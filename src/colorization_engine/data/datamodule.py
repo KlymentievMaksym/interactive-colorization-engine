@@ -26,7 +26,8 @@ class ColorizationDataModule(pl.LightningDataModule):
             train_paths: list[str | list[str]],
             val_paths: list[str | list[str]] | None = None,
             test_paths: list[str | list[str]] | None = None,
-            image_size: int = 256, batch_size: int = 16, num_workers: int = 4
+            image_size: int = 256, hint_size: int = 6,
+            batch_size: int = 16, num_workers: int = 4, timeout: float = 60
         ):
         super().__init__()
         self.train_paths = train_paths
@@ -34,8 +35,11 @@ class ColorizationDataModule(pl.LightningDataModule):
         self.test_paths = test_paths
 
         self.image_size = image_size
+        self.hint_size = hint_size
+    
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.timeout = timeout
 
         self.save_hyperparameters(ignore=["train_paths", "val_paths", "test_paths"])
 
@@ -63,11 +67,11 @@ class ColorizationDataModule(pl.LightningDataModule):
         dataset = []
         for path in paths:
             if isinstance(path, str):
-                dataset.append(SingleTargetFolderDataset(path, transform=transform))
+                dataset.append(SingleTargetFolderDataset(path, hint_size=self.hint_size, transform=transform))
             elif isinstance(path, list):
                 if len(path) != 2 or not all(isinstance(p, str) for p in path):
                     raise ValueError(f"Wrong path type. Paired path must be [str, str], got: {path}")
-                dataset.append(PairedDataset(*path, transform=transform))
+                dataset.append(PairedDataset(*path, hint_size=self.hint_size, transform=transform))
             else:
                 raise TypeError(f"Wrong path type. Expected str or [str, str], got: {path}")
         return ConcatDataset(dataset)
@@ -108,7 +112,8 @@ class ColorizationDataModule(pl.LightningDataModule):
         return DataLoader(
             dataset, batch_size=self.batch_size, 
             shuffle=shuffle, num_workers=self.num_workers,
-            pin_memory=True, persistent_workers=self.num_workers > 0
+            pin_memory=True, persistent_workers=self.num_workers > 0,
+            timeout=self.timeout
         )
 
     def train_dataloader(self):

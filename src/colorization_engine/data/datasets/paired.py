@@ -11,9 +11,10 @@ class PairedDataset(Dataset):
     """
     Dataset for already existing input and targets
     """
-    def __init__(self, dir_inputs, dir_targets, transform=None):
+    def __init__(self, dir_inputs: str, dir_targets: str, hint_size: int = 6, transform = None):
         self.dir_inputs = Path(dir_inputs)
         self.dir_targets = Path(dir_targets)
+        self.hint_size = hint_size
         self.transform = transform
 
         inputs = {
@@ -48,7 +49,7 @@ class PairedDataset(Dataset):
         l_tensor = normalize_l(rgb_to_lab(transform_dict["input"])[:, :, 0])
         ab_tensor = normalize_ab(rgb_to_lab(transform_dict["target"])[:, :, 1:3])
 
-        hints_tensor = _receive_hints(ab_tensor, l_tensor)
+        hints_tensor = _receive_hints(ab_tensor, l_tensor, hint_size=self.hint_size)
 
         return {
             "input": l_tensor,    # [1, 256, 256]

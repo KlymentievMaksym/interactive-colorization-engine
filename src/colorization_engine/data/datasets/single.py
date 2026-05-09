@@ -11,8 +11,9 @@ class SingleTargetFolderDataset(Dataset):
     """
     Dataset for already existing only targets
     """
-    def __init__(self, dir_root, transform=None):
+    def __init__(self, dir_root: str, hint_size: int = 6, transform = None):
         self.dir_root = Path(dir_root)
+        self.hint_size = hint_size
         self.transform = transform
         
         self.images = [
@@ -41,7 +42,7 @@ class SingleTargetFolderDataset(Dataset):
         l_tensor = normalize_l(image_lab[:, :, 0])
         ab_tensor = normalize_ab(image_lab[:, :, 1:3])
 
-        hints_tensor = _receive_hints(ab_tensor, l_tensor)
+        hints_tensor = _receive_hints(ab_tensor, l_tensor, hint_size=self.hint_size)
 
         return {
             "input": l_tensor,    # [1, 256, 256]
