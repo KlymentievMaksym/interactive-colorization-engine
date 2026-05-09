@@ -1,1 +1,2 @@
 from colorization_engine.models.transformer.ddcolor import DDColorWrapper
+from colorization_engine.models.transformer.unicolor import UnicolorWrapper
