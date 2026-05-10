@@ -33,10 +33,11 @@ def train(config: TrainConfig):
     print("[INFO] Initializing DataModule...")
     train_paths = [to_absolute_path(p) if isinstance(p, str) else [to_absolute_path(p[0]), to_absolute_path(p[1])] for p in config.data.train]
     val_paths = [to_absolute_path(p) if isinstance(p, str) else [to_absolute_path(p[0]), to_absolute_path(p[1])] for p in config.data.val] if config.data.val else None
+    test_paths = [to_absolute_path(p) if isinstance(p, str) else [to_absolute_path(p[0]), to_absolute_path(p[1])] for p in config.data.test] if config.data.test else None
 
     datamodule = ColorizationDataModule(
-        train_paths=train_paths, val_paths=val_paths,
-        image_size=config.image_size, hint_size=config.hint_size,
+        train_paths=train_paths, val_paths=val_paths, test_paths=test_paths,
+        image_size=config.image_size, min_hint_size=config.training.min_hint_size, max_hint_size=config.training.max_hint_size, num_hints_val=config.training.num_hints_val, patch_size_val=config.training.patch_size_val,
         batch_size=config.training.batch_size, num_workers=config.training.num_workers, timeout=config.training.timeout
     )
 
@@ -58,8 +59,8 @@ def train(config: TrainConfig):
     if config.training.do_save:
         checkpoint_best = ModelCheckpoint(
             dirpath=to_absolute_path("checkpoints"),
-            filename=f"{config.model.model_name}-best-{{epoch:02d}}-{{val_loss:.4f}}",
-            monitor="val_loss",
+            filename=f"{config.model.model_name}-best-{{epoch:02d}}-{{step}}-{{val_loss_auto:.4f}}-{{val_loss_hinted:.4f}}",
+            monitor="val_loss_auto",
             mode="min",
             save_top_k=3,
             save_last=True
@@ -73,9 +74,10 @@ def train(config: TrainConfig):
         callbacks.extend([checkpoint_best, checkpoint_last])  # , early_stop
 
     print("[INFO] Initializing PyTorch Lightning Trainer...")
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     current_time = datetime.now().strftime("%Y%m%d-%H%M")
-    experiment_name = f"{config.model.model_name}_ep{config.training.epochs:04d}_params{trainable_params / 1_000_000:.1f}M_{current_time}"
+    # trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    # experiment_name = f"{config.model.model_name}_ep{config.training.epochs:04d}_params{trainable_params / 1_000_000:.1f}M_{current_time}"
+    experiment_name = f"{config.model.model_name}_ep{config.training.epochs:04d}_{current_time}"
 
     logger = TensorBoardLogger(
         save_dir="logs/",
@@ -88,7 +90,7 @@ def train(config: TrainConfig):
         accelerator=config.device if config.device else "auto",
         callbacks=callbacks,
         log_every_n_steps=50,
-        val_check_interval=1.0
+        val_check_interval=config.training.val_check_interval
     )
 
     resume_path = to_absolute_path(config.training.resume) if config.training.resume else None
@@ -98,6 +100,7 @@ def train(config: TrainConfig):
         resume_path = None
 
     trainer.fit(model=lit_model, datamodule=datamodule, ckpt_path=resume_path)
+    trainer.test(model=lit_model, datamodule=datamodule)
 
 if __name__ == "__main__":
     train()

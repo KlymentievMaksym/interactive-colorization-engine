@@ -31,6 +31,7 @@ dependencies = [
     "lightning",
     "torchvision",
     "torchmetrics",
+    "torchmetrics[image]",
     "kornia",
     "mamba-ssm",
 
