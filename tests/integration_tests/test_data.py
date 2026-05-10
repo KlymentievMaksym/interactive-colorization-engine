@@ -24,9 +24,13 @@ def test_datamodule_setup_and_dataloader(dummy_dataset_dir):
         train_paths=[dummy_dataset_dir],
         val_paths=[dummy_dataset_dir],
         image_size=256,
-        hint_size=8,
+        min_hint_size=2,
+        max_hint_size=16,
+        num_hints_val=3,
+        patch_size_val=15,
         batch_size=2,
-        num_workers=0
+        num_workers=0,
+        timeout = 0
     )
 
     dm.setup(stage="fit")
