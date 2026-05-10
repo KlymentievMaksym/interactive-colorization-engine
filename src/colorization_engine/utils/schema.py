@@ -27,9 +27,15 @@ class TrainingConfig:
     num_workers: int = 4
     timeout: float=  60
 
+    min_hint_size: int = 2
+    max_hint_size: int = 16
+    num_hints_val: int = 3
+    patch_size_val: int = 15
+
     resume: str | None = None
     do_save: bool = True
     amount_show: int = 4
+    val_check_interval: int | float = 0.5
 
 @dataclass
 class DataConfig:
@@ -40,7 +46,6 @@ class DataConfig:
 @dataclass
 class MainConfig:
     image_size: int = 256
-    hint_size: int = 8
     device: str | None = None
     model: ModelNode = field(default_factory=ModelNode)
 

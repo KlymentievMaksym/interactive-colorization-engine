@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import kornia
 import torch
 from einops import rearrange
 
@@ -32,3 +33,21 @@ def denormalize_ab(ab_tensor: torch.Tensor) -> np.ndarray:
     """[-1, 1] Tensor -> [-110, 110] NumPy"""
     ab_np = rearrange(ab_tensor.detach().cpu(), "c h w -> h w c").clamp(-1, 1).numpy()
     return ab_np * 110.0
+
+def kornia_lab_to_rgb(l_channel: torch.Tensor, ab_channels: torch.Tensor) -> torch.Tensor:
+    """Convert L [-1, 1] and AB [-1, 1] tensors to RGB [0, 1]"""
+    l_unnorm = (l_channel + 1.0) * 50.0
+    ab_unnorm = ab_channels * 110.0
+
+    lab = torch.cat([l_unnorm, ab_unnorm], dim=1)
+    return kornia.color.lab_to_rgb(lab)
+
+def kornia_rgb_to_lab(rgb: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """Convert RGB [0, 1] to L [-1, 1] and AB [-1, 1] tensors"""
+    lab =  kornia.color.rgb_to_lab(rgb)
+    l_channel, ab_channels = lab[:, 0:1], lab[:, 1:3]
+
+    l_norm = l_channel / 50.0 - 1.0
+    ab_norm = (ab_channels / 110.0).clamp(-1, 1)
+
+    return l_norm, ab_norm
