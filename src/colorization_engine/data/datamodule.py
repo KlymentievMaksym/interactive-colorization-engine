@@ -26,7 +26,7 @@ class ColorizationDataModule(pl.LightningDataModule):
             train_paths: list[str | list[str]],
             val_paths: list[str | list[str]] | None = None,
             test_paths: list[str | list[str]] | None = None,
-            image_size: int = 256, hint_size: int = 6,
+            image_size: int = 256, min_hint_size: int = 2, max_hint_size: int = 16, num_hints_val: int = 3, patch_size_val: int = 15,
             batch_size: int = 16, num_workers: int = 4, timeout: float = 60
         ):
         super().__init__()
@@ -35,7 +35,11 @@ class ColorizationDataModule(pl.LightningDataModule):
         self.test_paths = test_paths
 
         self.image_size = image_size
-        self.hint_size = hint_size
+
+        self.min_hint_size = min_hint_size
+        self.max_hint_size = max_hint_size
+        self.num_hints_val = num_hints_val
+        self.patch_size_val = patch_size_val
     
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -49,7 +53,7 @@ class ColorizationDataModule(pl.LightningDataModule):
         self.val_dataset = None
         self.test_dataset = None
 
-    def _create_dataset(self, paths: list[str | list[str]] | None, get_transform: TransformFactory | None = None):
+    def _create_dataset(self, paths: list[str | list[str]] | None, get_transform: TransformFactory | None = None, training: bool = False):
         if paths is None:
             return None
 
@@ -67,11 +71,11 @@ class ColorizationDataModule(pl.LightningDataModule):
         dataset = []
         for path in paths:
             if isinstance(path, str):
-                dataset.append(SingleTargetFolderDataset(path, hint_size=self.hint_size, transform=transform))
+                dataset.append(SingleTargetFolderDataset(path, min_hint_size=self.min_hint_size, max_hint_size=self.max_hint_size, num_hints_val=self.num_hints_val, patch_size_val=self.patch_size_val, transform=transform, training=training))
             elif isinstance(path, list):
                 if len(path) != 2 or not all(isinstance(p, str) for p in path):
                     raise ValueError(f"Wrong path type. Paired path must be [str, str], got: {path}")
-                dataset.append(PairedDataset(*path, hint_size=self.hint_size, transform=transform))
+                dataset.append(PairedDataset(*path, min_hint_size=self.min_hint_size, max_hint_size=self.max_hint_size, num_hints_val=self.num_hints_val, patch_size_val=self.patch_size_val, transform=transform, training=training))
             else:
                 raise TypeError(f"Wrong path type. Expected str or [str, str], got: {path}")
         return ConcatDataset(dataset)
@@ -82,7 +86,8 @@ class ColorizationDataModule(pl.LightningDataModule):
                 if self.train_dataset is None:
                     self.train_dataset = self._create_dataset(
                         paths=self.train_paths,
-                        get_transform=get_train_transforms
+                        get_transform=get_train_transforms,
+                        training=True
                     )
                 if self.val_dataset is None:
                     self.val_dataset = self._create_dataset(

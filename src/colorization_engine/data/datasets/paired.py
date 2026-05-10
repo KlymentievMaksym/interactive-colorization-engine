@@ -11,11 +11,17 @@ class PairedDataset(Dataset):
     """
     Dataset for already existing input and targets
     """
-    def __init__(self, dir_inputs: str, dir_targets: str, hint_size: int = 6, transform = None):
+    def __init__(self, dir_inputs: str, dir_targets: str, min_hint_size: int = 2, max_hint_size: int = 16, num_hints_val: int = 3, patch_size_val: int = 15, transform = None, training: bool = False):
         self.dir_inputs = Path(dir_inputs)
         self.dir_targets = Path(dir_targets)
-        self.hint_size = hint_size
+
+        self.min_hint_size = min_hint_size
+        self.max_hint_size = max_hint_size
+        self.num_hints_val = num_hints_val
+        self.patch_size_val = patch_size_val
+
         self.transform = transform
+        self.training = training
 
         inputs = {
             f.stem: f for f in self.dir_inputs.rglob("*")
@@ -49,7 +55,7 @@ class PairedDataset(Dataset):
         l_tensor = normalize_l(rgb_to_lab(transform_dict["input"])[:, :, 0])
         ab_tensor = normalize_ab(rgb_to_lab(transform_dict["target"])[:, :, 1:3])
 
-        hints_tensor = _receive_hints(ab_tensor, l_tensor, hint_size=self.hint_size)
+        hints_tensor = _receive_hints(ab_tensor, l_tensor, min_hint_size=self.min_hint_size, max_hint_size=self.max_hint_size, num_hints_val=self.num_hints_val, patch_size_val=self.patch_size_val, training=self.training)
 
         return {
             "input": l_tensor,    # [1, 256, 256]
