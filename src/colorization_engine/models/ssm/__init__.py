@@ -1,1 +1,2 @@
 from colorization_engine.models.ssm.mamba import MambaWrapper
+from colorization_engine.models.ssm.mamba_undirectional import MambaUndirectionalWrapper

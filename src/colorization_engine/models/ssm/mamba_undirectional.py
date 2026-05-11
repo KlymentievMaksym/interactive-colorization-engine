@@ -20,8 +20,8 @@ class DoubleConv(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.conv(x)
 
-@register_model("mamba")
-class MambaWrapper(BaseColorizer):
+@register_model("mamba_undirectional")
+class MambaUndirectionalWrapper(BaseColorizer):
     def __init__(self, d_model: int = 256, layers: int = 6, blocks: int = 2):
         super().__init__()
         
@@ -82,13 +82,7 @@ class MambaWrapper(BaseColorizer):
         b, c, h, w = p3.shape
         x_flat = p3.view(b, c, h * w).permute(0, 2, 1).contiguous() # [B, L, D]
     
-        x_fwd = self.mamba(x_flat)
-        x_flat_rev = torch.flip(x_flat, dims=[1]) # Перевертаємо послідовність (справа наліво, знизу вверх)
-        x_rev = self.mamba(x_flat_rev)
-        x_rev = torch.flip(x_rev, dims=[1])
-
-        x_mamba = (x_fwd + x_rev) / 2.0
-
+        x_mamba = self.mamba(x_flat)
         x_res = x_mamba.permute(0, 2, 1).contiguous().view(b, c, h, w)
         
         # --- DECODER FORWARD ---
