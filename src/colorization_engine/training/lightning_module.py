@@ -19,7 +19,7 @@ from colorization_engine.utils.patches import get_gaussian_patch_circle as get_g
 seed_everything(42, workers=True)
 
 class LitColorizer(pl.LightningModule):
-    def __init__(self, model: nn.Module, criterion: nn.Module, epochs: int = 100, lr: float = 1e-4, weight_decay: float = 1e-4, amount_show: int = 4):
+    def __init__(self, model: nn.Module, criterion: nn.Module | None = None, epochs: int = 100, lr: float = 1e-4, weight_decay: float = 1e-4, amount_show: int = 4):
         super().__init__()
         self.model = model
         self.criterion = criterion
@@ -67,13 +67,17 @@ class LitColorizer(pl.LightningModule):
         error = torch.cat([r, g, b], dim=1)
         return error
 
+    def on_train_start(self):
+        if self.criterion is None:
+            raise ValueError("Criterion is None")
+
     def training_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> torch.Tensor:
         l_tensor, ab_target = batch["input"], batch["target"]
         hints = batch.get("hints", None)
         hint_mask = hints[:, 2:3, :, :] if hints is not None else None
 
         ab_pred = self(l_tensor, hints)
-        loss, loss_dict = self.criterion(ab_pred, ab_target, l_tensor, hint_mask)
+        loss, loss_dict = self.criterion(ab_pred, ab_target, l_tensor, hint_mask) # type: ignore
 
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log_dict({f"train/{k}": v for k, v in loss_dict.items()}, on_step=True, on_epoch=True, sync_dist=True)
@@ -127,16 +131,14 @@ class LitColorizer(pl.LightningModule):
         self.logger.experiment.add_image(f"Train/{name}", grid_train, self.global_step)
 
     def on_validation_start(self):
+        if self.criterion is None:
+            raise ValueError("Criterion is None")
         if self.trainer.val_dataloaders is None:
             raise ValueError("Val dataloader is None")
 
-        batch = next(iter(self.trainer.val_dataloaders))
-        self.example_l = batch["input"][:self.amount_show]
-        self.example_ab = batch["target"][:self.amount_show]
-    
-        _, _, H, W = self.example_ab.shape
-        device = self.example_ab.device
-        self.example_hints = torch.zeros((self.amount_show, 3, H, W), device=device)
+        self.example_l = None
+        self.example_ab = None
+        self.example_hints = None
 
     def validation_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
         l_tensor, ab_target = batch["input"], batch["target"]
@@ -147,7 +149,7 @@ class LitColorizer(pl.LightningModule):
         empty_hints = torch.zeros((B, 3, H, W), device=device)
         ab_pred_auto = self(l_tensor, empty_hints)
 
-        val_loss_auto, loss_dict_auto = self.criterion(ab_pred_auto, ab_target, l_tensor, hint_mask=empty_hints[:, 2:3])
+        val_loss_auto, loss_dict_auto = self.criterion(ab_pred_auto, ab_target, l_tensor, hint_mask=empty_hints[:, 2:3]) # type: ignore
         self.log("val_loss_auto", val_loss_auto, on_step=True, on_epoch=True, sync_dist=True)
 
         rgb_pred_auto = kornia_lab_to_rgb(l_tensor, ab_pred_auto)
@@ -163,18 +165,22 @@ class LitColorizer(pl.LightningModule):
         if val_hints is not None:
             ab_pred_hinted = self(l_tensor, val_hints)
 
-            val_loss_hinted, loss_dict_hinted = self.criterion(ab_pred_hinted, ab_target, l_tensor, hint_mask=val_hints[:, 2:3])
+            val_loss_hinted, loss_dict_hinted = self.criterion(ab_pred_hinted, ab_target, l_tensor, hint_mask=val_hints[:, 2:3]) # type: ignore
             
             self.log("val_loss_hinted", val_loss_hinted, on_step=True, on_epoch=True, sync_dist=True)
             self.log_dict({f"val_hinted/{k}": v for k, v in loss_dict_hinted.items()}, on_epoch=True, sync_dist=True)
 
             if batch_idx == 0:
-                self.example_hints = val_hints[:self.amount_show]
+                self.example_l = l_tensor[:self.amount_show].detach()
+                self.example_ab = ab_target[:self.amount_show].detach()
+                self.example_hints = val_hints[:self.amount_show].detach()
 
     def on_validation_epoch_end(self):
         if not isinstance(self.logger, TensorBoardLogger):
             return
-            
+        if self.example_l is None:
+            return
+
         l_channel = self.example_l.to(self.device)
         true_ab = self.example_ab.to(self.device)
         hints = self.example_hints.to(self.device)
@@ -219,6 +225,20 @@ class LitColorizer(pl.LightningModule):
 
         colorfulness = torch.sqrt(std_rg**2 + std_yb**2) + 0.3 * torch.sqrt(mean_rg**2 + mean_yb**2)
         return colorfulness.mean()
+
+    def on_test_start(self):
+        test_loaders = self.trainer.test_dataloaders
+        
+        if test_loaders is not None:
+            dl = test_loaders[0] if isinstance(test_loaders, list) else test_loaders
+            test_size = len(dl.dataset)
+
+            standard_subset_size = self.test_gen_metrics["kid"].subset_size
+            safe_subset_size = min(standard_subset_size, test_size) # type: ignore
+
+            self.test_gen_metrics["kid"].subset_size = safe_subset_size
+
+            print(f"[INFO] Auto-adjusted KID subset_size to: {safe_subset_size} (Dataset size: {test_size})")
 
     def test_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
         l_tensor, ab_target = batch["input"], batch["target"]
