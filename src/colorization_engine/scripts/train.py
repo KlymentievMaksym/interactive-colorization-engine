@@ -35,10 +35,13 @@ def train(config: TrainConfig):
     val_paths = [to_absolute_path(p) if isinstance(p, str) else [to_absolute_path(p[0]), to_absolute_path(p[1])] for p in config.data.val] if config.data.val else None
     test_paths = [to_absolute_path(p) if isinstance(p, str) else [to_absolute_path(p[0]), to_absolute_path(p[1])] for p in config.data.test] if config.data.test else None
 
+    if not train_paths:
+        raise ValueError("[ERROR] No training data paths provided in config.data.train")
+
     datamodule = ColorizationDataModule(
         train_paths=train_paths, val_paths=val_paths, test_paths=test_paths,
-        image_size=config.image_size, min_hint_size=config.training.min_hint_size, max_hint_size=config.training.max_hint_size, num_hints_val=config.training.num_hints_val, patch_size_val=config.training.patch_size_val,
-        batch_size=config.training.batch_size, num_workers=config.training.num_workers, timeout=config.training.timeout
+        image_size=config.image_size, min_hint_size=config.hints.min_hint_size, max_hint_size=config.hints.max_hint_size, num_hints_val=config.hints.num_hints_val, patch_size_val=config.hints.patch_size_val,
+        batch_size=config.dataloader.batch_size, num_workers=config.dataloader.num_workers, timeout=config.dataloader.timeout
     )
 
     print(f"[INFO] Loading model {config.model.model_name}...")
@@ -48,12 +51,8 @@ def train(config: TrainConfig):
 
     model = build_model_pipeline(model_name=model_config.model_name, weights_path=model_config.weights, model_params=model_config.model_params, device=device)
     criterion = build_loss(loss_name=loss_config.loss_name, loss_params=loss_config.loss_params)
-    # model = config.model
-    # model = load_colorization_model(model_name=model.model_name, weights=model.weights, model_params=model.model_params, device=config.device)
-    # # criterion = ColorizationLoss(lambda_l1=config.training.loss_lambda_l1, lambda_cos=config.training.loss_lambda_cos, lambda_sat=config.training.loss_lambda_sat, color_weight=config.training.loss_color_weight)
-    # criterion = ColorizationLoss(device=config.device)
 
-    lit_model = LitColorizer(model=model, criterion=criterion, lr=config.training.lr, weight_decay=config.training.weight_decay, amount_show=config.training.amount_show)
+    lit_model = LitColorizer(model=model, criterion=criterion, epochs=config.training.epochs, lr=config.training.lr, weight_decay=config.training.weight_decay, amount_show=config.training.amount_show)
 
     callbacks = []
     if config.training.do_save:
@@ -81,7 +80,7 @@ def train(config: TrainConfig):
 
     logger = TensorBoardLogger(
         save_dir="logs/",
-        name="colorization_engine",
+        name="train",
         version=experiment_name
     )
     trainer = pl.Trainer(

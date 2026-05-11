@@ -19,18 +19,23 @@ class LossNode:
     loss_params: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
-class TrainingConfig:
-    lr: float = 1e-4
-    weight_decay: float = 1e-4
-    epochs: int = 100
-    batch_size: int = 4
-    num_workers: int = 4
-    timeout: float=  60
-
+class HintsConfig:
     min_hint_size: int = 2
     max_hint_size: int = 16
     num_hints_val: int = 3
     patch_size_val: int = 15
+
+@dataclass
+class DataloaderConfig:
+    batch_size: int = 4
+    num_workers: int = 4
+    timeout: float=  60
+
+@dataclass
+class TrainingConfig:
+    lr: float = 1e-4
+    weight_decay: float = 1e-4
+    epochs: int = 100
 
     resume: str | None = None
     do_save: bool = True
@@ -53,6 +58,8 @@ class MainConfig:
 class TrainConfig(MainConfig):
     loss: LossNode = field(default_factory=LossNode)
     training: TrainingConfig = field(default_factory=TrainingConfig)
+    hints: HintsConfig = field(default_factory=HintsConfig)
+    dataloader: DataloaderConfig = field(default_factory=DataloaderConfig)
     data: DataConfig = field(default_factory=DataConfig)
 
 @dataclass
@@ -63,7 +70,8 @@ class InferenceConfig(MainConfig):
 
 @dataclass
 class EvaluateConfig(MainConfig):
+    hints: HintsConfig = field(default_factory=HintsConfig)
+    dataloader: DataloaderConfig = field(default_factory=DataloaderConfig)
     data: DataConfig = field(default_factory=DataConfig)
-    batch_size: int = 4
     output_dir: str = "results/eval"
     save_number: int = 50

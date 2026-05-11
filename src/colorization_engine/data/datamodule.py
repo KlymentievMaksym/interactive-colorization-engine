@@ -23,7 +23,7 @@ class TransformFactory(Protocol):
 class ColorizationDataModule(pl.LightningDataModule):
     def __init__(
             self,
-            train_paths: list[str | list[str]],
+            train_paths: list[str | list[str]] | None = None,
             val_paths: list[str | list[str]] | None = None,
             test_paths: list[str | list[str]] | None = None,
             image_size: int = 256, min_hint_size: int = 2, max_hint_size: int = 16, num_hints_val: int = 3, patch_size_val: int = 15,
@@ -122,7 +122,8 @@ class ColorizationDataModule(pl.LightningDataModule):
         )
 
     def train_dataloader(self):
-        return self._create_dataloader(self.train_dataset, shuffle=True, required=True)
+        return self._create_dataloader(self.train_dataset, shuffle=True, required=False)
+        # return self._create_dataloader(self.train_dataset, shuffle=True, required=True)
 
     def val_dataloader(self):
         return self._create_dataloader(self.val_dataset, shuffle=False)
