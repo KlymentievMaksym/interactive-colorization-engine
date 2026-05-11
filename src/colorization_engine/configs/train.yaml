@@ -10,19 +10,22 @@ training:
   lr: 1e-4
   weight_decay: 1e-4
   epochs: 8
-  batch_size: 16
-  num_workers: 4
-  timeout: 60
-
-  min_hint_size: 2
-  max_hint_size: 16
-  num_hints_val: 3
-  patch_size_val: 15
 
   resume: null
   do_save: true
   amount_show: 4
   val_check_interval: 0.25
+
+hints:
+  min_hint_size: 2
+  max_hint_size: 16
+  num_hints_val: 3
+  patch_size_val: 15
+
+dataloader:
+  batch_size: 15
+  num_workers: 4
+  timeout: 60
 
 data:
   # train: ["data/coco_train_2017/train100"]

@@ -5,10 +5,23 @@ defaults:
 image_size: 256
 device: null
 
-batch_size: 4
 output_dir: "results/eval"
 save_number: 8
 
+hints:
+  min_hint_size: 2
+  max_hint_size: 16
+  num_hints_val: 3
+  patch_size_val: 15
+
+dataloader:
+  batch_size: 16
+  num_workers: 4
+  timeout: 60
+
 data:
   train: null
-  val: ["data/coco_val_2017/val2017"]
+  val: null
+  # test: [["data/NCD/NCD Dataset/Gray", "data/NCD/NCD Dataset/Color"], "data/coco_test_2017/test2017", "data/flowers"]
+  test: [["data/NCD/NCD Dataset/Gray", "data/NCD/NCD Dataset/Color"]]
+  # test: ["data/coco_val_2017/val2017"]
