@@ -1,5 +1,5 @@
 model_name: "mamba"
-weights: checkpoints/mamba_bi_lpips_1_l1_1_hints_5_ep1.ckpt
+weights: checkpoints/mamba_bi_lpips_1_l1_1_hints_5_ep21_step165606.ckpt
 model_params:
   d_model: 256
   layers: 8

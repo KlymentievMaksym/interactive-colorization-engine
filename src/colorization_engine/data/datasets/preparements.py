@@ -53,7 +53,7 @@ def _receive_hints(ab_tensor: torch.Tensor, l_tensor: torch.Tensor, min_hint_siz
 
                 pad = torch.randint(min_hint_size, max_hint_size, (1,), device=device).item()
                 patch_size = pad * 2 + 1
-                base_patch = get_gaussian_patch(patch_size, device=device)
+                base_patch = get_gaussian_patch(patch_size, device=device) # type: ignore
 
                 intensity = torch.rand(1, device=device).item() * 0.8 + 0.2
                 patch = base_patch * intensity

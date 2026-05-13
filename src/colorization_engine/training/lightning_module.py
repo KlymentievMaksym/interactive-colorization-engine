@@ -14,7 +14,6 @@ from pytorch_lightning import seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from colorization_engine.utils.color_space import kornia_lab_to_rgb
-from colorization_engine.utils.patches import get_gaussian_patch_circle as get_gaussian_patch
 
 seed_everything(42, workers=True)
 
@@ -48,8 +47,11 @@ class LitColorizer(pl.LightningModule):
         self.strict_loading = False #
 
     def on_save_checkpoint(self, checkpoint: dict) -> None:
-        """Strip the LPIPS metric weights from the checkpoint to prevent bloat."""
-        keys_to_remove = [k for k in checkpoint["state_dict"].keys() if "lpips_metric" in k]
+        keys_to_remove = [
+            k for k in checkpoint["state_dict"].keys() 
+            if any(x in k for x in ["lpips", "fid", "kid", "inception"])
+        ]
+
         for k in keys_to_remove:
             del checkpoint["state_dict"][k]
 
@@ -71,6 +73,18 @@ class LitColorizer(pl.LightningModule):
         if self.criterion is None:
             raise ValueError("Criterion is None")
 
+        new_lr = self.lr 
+
+        for optimizer in self.trainer.optimizers:
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = new_lr
+
+        if self.trainer.lr_scheduler_configs:
+            for config in self.trainer.lr_scheduler_configs:
+                scheduler = config.scheduler
+                if hasattr(scheduler, 'base_lrs'):
+                    scheduler.base_lrs = [new_lr for _ in scheduler.base_lrs]
+
     def training_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> torch.Tensor:
         l_tensor, ab_target = batch["input"], batch["target"]
         hints = batch.get("hints", None)
@@ -88,6 +102,9 @@ class LitColorizer(pl.LightningModule):
             train_example_target = ab_target[:self.amount_show].detach()
             train_example_hints = hints[:self.amount_show].detach() if hints is not None else None
             self._log_train_images(train_example_l, train_example_pred, train_example_target, train_example_hints)
+
+        current_lr = self.trainer.optimizers[0].param_groups[0]['lr']
+        self.log("learning_rate", current_lr, on_step=True, on_epoch=False, sync_dist=True)
 
         return loss
 
@@ -182,8 +199,8 @@ class LitColorizer(pl.LightningModule):
             return
 
         l_channel = self.example_l.to(self.device)
-        true_ab = self.example_ab.to(self.device)
-        hints = self.example_hints.to(self.device)
+        true_ab = self.example_ab.to(self.device) # type: ignore
+        hints = self.example_hints.to(self.device) # type: ignore
 
         gray = ((l_channel + 1.0) / 2.0).repeat(1, 3, 1, 1)
         true_rgb = kornia_lab_to_rgb(l_channel, true_ab)

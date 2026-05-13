@@ -1,5 +1,5 @@
 model_name: "mamba_undirectional"
-weights: checkpoints/mamba_lpips_5_l1_10_hints_50_ep5.ckpt
+weights: checkpoints/mamba_un_lpips_5_l1_10_hints_50_ep10_step93648.ckpt
 model_params:
   d_model: 256
   layers: 8

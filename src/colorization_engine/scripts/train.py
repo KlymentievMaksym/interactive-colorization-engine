@@ -59,7 +59,7 @@ def train(config: TrainConfig):
         checkpoint_best = ModelCheckpoint(
             dirpath=to_absolute_path("checkpoints"),
             filename=f"{config.model.model_name}-best-{{epoch:02d}}-{{step}}-{{val_loss_auto:.4f}}-{{val_loss_hinted:.4f}}",
-            monitor="val_loss_auto",
+            monitor="val_loss_hinted",
             mode="min",
             save_top_k=3,
             save_last=True
@@ -88,6 +88,7 @@ def train(config: TrainConfig):
         max_epochs=config.training.epochs,
         accelerator=config.device if config.device else "auto",
         callbacks=callbacks,
+        precision="bf16-mixed",
         log_every_n_steps=50,
         val_check_interval=config.training.val_check_interval
     )

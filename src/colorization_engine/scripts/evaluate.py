@@ -14,6 +14,7 @@ from hydra.utils import to_absolute_path
 
 import torch
 torch.set_float32_matmul_precision('medium')
+
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 
@@ -107,6 +108,7 @@ def evaluate(config: EvaluateConfig):
     )
     trainer = pl.Trainer(
         logger=logger,
+        precision="bf16-mixed",
         accelerator=config.device if config.device else "auto",
         enable_model_summary=True,
     )

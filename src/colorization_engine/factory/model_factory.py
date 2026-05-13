@@ -1,6 +1,7 @@
 from typing import Any, Dict
 from os.path import exists
 import logging
+import warnings
 
 import torch
 import torch.nn as nn
@@ -9,6 +10,7 @@ from hydra.utils import to_absolute_path
 
 from colorization_engine.training.lightning_module import LitColorizer
 from colorization_engine.factory.registry import MODEL_REGISTRY
+from colorization_engine.models.util_models import BaseColorizer
 import colorization_engine.models
 
 
@@ -23,9 +25,27 @@ def build_model(model_name: str, model_params: Dict[str, Any] | None = None) -> 
     return MODEL_REGISTRY[model_name_lower](**model_params)
 
 def load_from_lightning_checkpoint(model: nn.Module, path: str) -> nn.Module:
-    lit_model = LitColorizer.load_from_checkpoint(checkpoint_path=path, map_location="cpu", model=model, criterion=None)
-    return lit_model.model
+    pl_logger = logging.getLogger("pytorch_lightning")
+    previous_level = pl_logger.level
+    pl_logger.setLevel(logging.ERROR)
 
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*Kernel Inception Distance.*", category=UserWarning)
+            warnings.filterwarnings("ignore", message=".*Found.*module\\(s\\) in eval mode at the start of training.*", category=UserWarning)
+            warnings.filterwarnings("ignore", message=".*isinstance\\(treespec, LeafSpec\\) is deprecated.*", category=DeprecationWarning)
+            warnings.filterwarnings("ignore", message=".*Found keys that are in the model state dict but not in the checkpoint.*", category=UserWarning)
+
+            lit_model = LitColorizer.load_from_checkpoint(
+                checkpoint_path=path, 
+                map_location="cpu", 
+                model=model, 
+                criterion=None
+            )
+    finally:
+        pl_logger.setLevel(previous_level)
+
+    return lit_model.model
 def extract_state_dict(ckpt: str):
     state_dict = torch.load(ckpt, map_location="cpu", weights_only=True)
     if "state_dict" in state_dict:
@@ -66,7 +86,7 @@ def load_model_weights(model: nn.Module, path: str | None) -> nn.Module:
         state_dict = extract_state_dict(path)
         return apply_state_dict(state_dict=state_dict, model=model)
 
-def build_model_pipeline(model_name: str, weights_path: str | None, model_params: Dict[str, Any] | None, device: torch.device | str = "cuda") -> torch.nn.Module:
+def build_model_pipeline(model_name: str, weights_path: str | None, model_params: Dict[str, Any] | None, device: torch.device | str = "cuda") -> BaseColorizer:
     """Builds models using its name, path and model_params, while sending it to device"""
     model = build_model(model_name=model_name, model_params=model_params)
     model = load_model_weights(model=model, path=weights_path)

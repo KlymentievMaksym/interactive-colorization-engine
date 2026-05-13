@@ -23,6 +23,7 @@ dependencies = [
     "tqdm",
     "matplotlib",
     "tensorboard",
+    "rich",
 
     "albumentations",
     "einops",
@@ -63,6 +64,8 @@ Issues = "https://github.com/KlymentievMaksym/interactive-colorization-engine/is
 train = "colorization_engine.scripts.train:train"
 evaluate = "colorization_engine.scripts.evaluate:evaluate"
 inference = "colorization_engine.scripts.inference:inference"
+inspect_ckpt = "colorization_engine.scripts.inspect_ckpt:inspect_ckpt"
+optimize_ckpt = "colorization_engine.scripts.optimize_ckpt:optimize_ckpt"
 
 # [project.entry-points."spam.magical"]
 # tomatoes = "spam:main_tomatoes"
