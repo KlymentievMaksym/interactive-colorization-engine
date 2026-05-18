@@ -24,4 +24,5 @@ data:
   val: null
   # test: [["data/NCD/NCD Dataset/Gray", "data/NCD/NCD Dataset/Color"], "data/coco_test_2017/test2017", "data/flowers"]
   test: [["data/NCD/NCD Dataset/Gray", "data/NCD/NCD Dataset/Color"]]
-  # test: ["data/coco_val_2017/val2017"]
+  # test: ["data/coco_test_2017/test2017"]
+  # test: ["data/flowers"]

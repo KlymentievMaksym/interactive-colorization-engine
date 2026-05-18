@@ -130,7 +130,7 @@ class ColorizationPipeline:
         input_tensor = input_tensor.to(self.device)
         tensor_hints = tensor_hints.to(self.device) if tensor_hints is not None else None
 
-        output_abs = self.model.sample(input_tensor, tensor_hints, num_samples=num_samples)
+        output_abs = self.model.sample(input_tensor, tensor_hints, num_samples=num_samples, color_intensity=color_intensity)
 
         results = []
         for output_ab in output_abs:

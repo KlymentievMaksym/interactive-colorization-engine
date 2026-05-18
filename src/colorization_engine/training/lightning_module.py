@@ -73,17 +73,17 @@ class LitColorizer(pl.LightningModule):
         if self.criterion is None:
             raise ValueError("Criterion is None")
 
-        new_lr = self.lr 
+        # new_lr = self.lr 
 
-        for optimizer in self.trainer.optimizers:
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = new_lr
+        # for optimizer in self.trainer.optimizers:
+        #     for param_group in optimizer.param_groups:
+        #         param_group['lr'] = new_lr
 
-        if self.trainer.lr_scheduler_configs:
-            for config in self.trainer.lr_scheduler_configs:
-                scheduler = config.scheduler
-                if hasattr(scheduler, 'base_lrs'):
-                    scheduler.base_lrs = [new_lr for _ in scheduler.base_lrs]
+        # if self.trainer.lr_scheduler_configs:
+        #     for config in self.trainer.lr_scheduler_configs:
+        #         scheduler = config.scheduler
+        #         if hasattr(scheduler, 'base_lrs'):
+        #             scheduler.base_lrs = [new_lr for _ in scheduler.base_lrs]
 
     def training_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> torch.Tensor:
         l_tensor, ab_target = batch["input"], batch["target"]
@@ -176,14 +176,17 @@ class LitColorizer(pl.LightningModule):
         self.log_dict(self.val_metrics, on_epoch=True, sync_dist=True)
         self.log_dict({f"val_auto/{k}": v for k, v in loss_dict_auto.items()}, on_epoch=True, sync_dist=True)
 
+        val_loss_total = val_loss_auto
+
         # Interactive
         val_hints = batch.get("hints", None)
-        
+
         if val_hints is not None:
             ab_pred_hinted = self(l_tensor, val_hints)
 
             val_loss_hinted, loss_dict_hinted = self.criterion(ab_pred_hinted, ab_target, l_tensor, hint_mask=val_hints[:, 2:3]) # type: ignore
-            
+            val_loss_total = (val_loss_total + val_loss_hinted) / 2.0
+
             self.log("val_loss_hinted", val_loss_hinted, on_step=True, on_epoch=True, sync_dist=True)
             self.log_dict({f"val_hinted/{k}": v for k, v in loss_dict_hinted.items()}, on_epoch=True, sync_dist=True)
 
@@ -191,6 +194,8 @@ class LitColorizer(pl.LightningModule):
                 self.example_l = l_tensor[:self.amount_show].detach()
                 self.example_ab = ab_target[:self.amount_show].detach()
                 self.example_hints = val_hints[:self.amount_show].detach()
+
+        self.log("val_loss", val_loss_total, sync_dist=True)
 
     def on_validation_epoch_end(self):
         if not isinstance(self.logger, TensorBoardLogger):

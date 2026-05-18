@@ -2,6 +2,11 @@ from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
 
+from colorization_engine.utils.saliency import FastSaliencySampler
+from colorization_engine.utils.patches import get_gaussian_patch_circle as get_gaussian_patch
+
+SALIENCY_SAMPLER = FastSaliencySampler(blur_kernel_size=15, uniform_prior=0.15)
+
 class BaseColorizer(nn.Module, ABC):
     """
     Абстрактний базовий клас для всіх моделей колоризації.
@@ -16,103 +21,102 @@ class BaseColorizer(nn.Module, ABC):
         """
         pass
 
-    def _generate_random_gaussian_hints(
-        self, 
-        base_hints: torch.Tensor | None, 
-        B: int, H: int, W: int, 
-        device: torch.device,
-        num_hints: int = 5,
-        radius: float = 4.0
-    ) -> torch.Tensor:
+    def _generate_random_color(self, device: torch.device = torch.device('cpu')) -> torch.Tensor:
+        """
+        Генерує випадкові кольори у просторі CIELAB з фокусом на природні/приглушені тони.
+        """
+        # std_dev контролює насиченість. 
+        # 0.3-0.4 - це хороше значення для природних зображень
+        std_dev = 0.35 
+        
+        # Генеруємо нормальний розподіл (центр у 0)
+        color_ab = torch.randn((2, 1, 1), device=device) * std_dev
+        
+        # Обрізаємо жорсткі викиди, щоб не вийти за межі [-1, 1]
+        color_ab = torch.clamp(color_ab, min=-1.0, max=1.0)
+        
+        return color_ab
+
+    def _generate_random_gaussian_hints(self, l_channel: torch.Tensor, base_hints: torch.Tensor | None, num_hints: int = 5, min_hint_size: int = 2, max_hint_size: int = 16) -> torch.Tensor:
         """
         Генерує тензор випадкових підказок у незайнятих місцях.
         """
+        B, _, H, W = l_channel.shape
+        device = l_channel.device
+
+        # Канали: [a, b, mask]
         new_hints = torch.zeros((B, 3, H, W), device=device)
-        
-        # Визначаємо зайняту територію (де маска користувача > 0)
+
         if base_hints is not None:
             # Вважаємо зайнятим все, що має маску > 0.05
             occupied = base_hints[:, 2:3, :, :] > 0.05 
         else:
             occupied = torch.zeros((B, 1, H, W), dtype=torch.bool, device=device)
 
-        # Створюємо координатні сітки для швидкого малювання Гаусса
-        y_grid = torch.arange(H, device=device).view(-1, 1).float()
-        x_grid = torch.arange(W, device=device).view(1, -1).float()
+        min_dist_sq = (max_hint_size * 1.5) ** 2 
 
         for b in range(B):
-            # Знаходимо всі координати (y, x), які НЕ зайняті
-            free_space = ~occupied[b, 0]
-            valid_coords = torch.nonzero(free_space) # [N, 2]
+            if num_hints <= 0:
+                continue
+
+            points = SALIENCY_SAMPLER.sample_points(l_channel[b:b+1], num_hints * 3)
             
-            if len(valid_coords) == 0:
-                continue # Якщо користувач замалював усе, пропускаємо
+            if not points:
+                continue
 
-            # Генеруємо задану кількість випадкових точок
-            for _ in range(num_hints):
-                # 1. Вибираємо випадкову вільну координату
-                idx = torch.randint(0, len(valid_coords), (1,)).item()
-                cy, cx = valid_coords[idx]
+            placed_points = []
 
-                # 2. Генеруємо випадковий колір a та b в діапазоні [-1, 1]
-                rand_a = (torch.rand(1, device=device).item() * 2.0) - 1.0
-                rand_b = (torch.rand(1, device=device).item() * 2.0) - 1.0
+            for y, x in points:
+                if occupied[b, 0, y, x]:
+                    continue
 
-                # 3. Малюємо гауссову пляму
-                dist_sq = (y_grid - cy)**2 + (x_grid - cx)**2
-                sigma = radius / 3.0 # Щоб на межі радіуса значення падало майже до 0
-                patch_mask = torch.exp(-dist_sq / (2 * sigma**2))
-                
-                # Обрізаємо хвости Гаусса, щоб пляма була локальною
-                patch_mask[dist_sq > radius**2] = 0.0 
-                
-                # Забороняємо плямі залізати на територію користувача
-                patch_mask[occupied[b, 0]] = 0.0
-                
-                patch_mask = patch_mask.unsqueeze(0) # [1, H, W]
+                too_close = any((y - py)**2 + (x - px)**2 < min_dist_sq for py, px in placed_points)
+                if too_close:
+                    continue
 
-                # 4. Додаємо пляму до загального тензора нових підказок
-                # Використовуємо маску для оновлення кольору там, де нова пляма сильніша
-                update_mask = patch_mask > new_hints[b, 2:3]
-                new_hints[b, 0:1][update_mask] = rand_a
-                new_hints[b, 1:2][update_mask] = rand_b
-                new_hints[b, 2:3] = torch.maximum(new_hints[b, 2:3], patch_mask)
+                placed_points.append((y, x))
+
+                pad = int(torch.randint(min_hint_size, max_hint_size, (1,)).item())
+                patch_size = pad * 2 + 1
+                base_patch = get_gaussian_patch(patch_size, device=device) # type: ignore
+
+                intensity = torch.rand(1, device=device).item() * 0.8 + 0.2
+                patch = base_patch * intensity
+
+                y1, y2 = max(0, y - pad), min(H, y + pad + 1)
+                x1, x2 = max(0, x - pad), min(W, x + pad + 1)
+
+                py1, py2 = max(0, pad - y), patch_size - max(0, y + pad + 1 - H)
+                px1, px2 = max(0, pad - x), patch_size - max(0, x + pad + 1 - W)
+
+                current_mask_patch = patch[py1:py2, px1:px2]
+                new_hints[b, 2, y1:y2, x1:x2] = torch.maximum(new_hints[b, 2, y1:y2, x1:x2], current_mask_patch)
+
+                random_color = self._generate_random_color(device=device)
+                colored_patch = random_color * current_mask_patch
+                new_hints[b, 0:2, y1:y2, x1:x2] = new_hints[b, 0:2, y1:y2, x1:x2] + colored_patch
+
+                if len(placed_points) >= num_hints:
+                    break
 
         return new_hints
 
     @torch.no_grad()
-    def sample(
-        self, 
-        l_channel: torch.Tensor, 
-        hints: torch.Tensor | None = None, 
-        num_samples: int = 5, 
-        random_hints_count: int = 4,
-        patch_radius: float = 3.0
-    ) -> list[torch.Tensor]:
+    def sample(self, l_channel: torch.Tensor, hints: torch.Tensor | None = None, num_samples: int = 5, color_intensity: float = 1.0, min_hint_size: int = 2, max_hint_size: int = 8) -> list[torch.Tensor]:
         """
         Генерує варіанти колоризації, додаючи випадкові кольорові плями в порожні зони.
         """
         self.eval()
         variants = []
-        B, _, H, W = l_channel.shape
-        device = l_channel.device
 
-        # Варіант 1: Точно те, що попросив користувач (чистий предикт)
         clean_pred = self(l_channel, hints)
         variants.append(clean_pred)
 
-        # Решта варіантів: генеруємо випадкові підказки
         for _ in range(num_samples - 1):
-            # Генеруємо нові випадкові підказки
-            gen_hints = self._generate_random_gaussian_hints(
-                base_hints=hints, 
-                B=B, H=H, W=W, 
-                device=device,
-                num_hints=random_hints_count,
-                radius=patch_radius
-            )
+            gen_hints = self._generate_random_gaussian_hints(l_channel=l_channel, base_hints=hints, min_hint_size=min_hint_size, max_hint_size=max_hint_size)
+            gen_hints[:, :2, :, :] *= color_intensity
+            gen_hints[:, :2, :, :] = torch.clamp(gen_hints[:, :2, :, :], -1.0, 1.0)
 
-            # Об'єднуємо підказки користувача та згенеровані
             if hints is not None:
                 user_color = hints[:, :2, :, :]
                 user_mask = hints[:, 2:3, :, :]
@@ -120,19 +124,17 @@ class BaseColorizer(nn.Module, ABC):
                 gen_color = gen_hints[:, :2, :, :]
                 gen_mask = gen_hints[:, 2:3, :, :]
 
-                # Фінальна маска — це максимум з двох
                 combined_mask = torch.maximum(user_mask, gen_mask)
-                
-                # Колір: пріоритет у користувача. 
-                # Якщо маска юзера > 0, беремо його колір, інакше згенерований
-                is_user = user_mask > 0
-                combined_color = torch.where(is_user, user_color, gen_color)
-                
+
+                combined_color = user_color + gen_color
+                combined_color = torch.clamp(combined_color, -1.0, 1.0)
+                # is_user = user_mask > 0
+                # combined_color = torch.where(is_user, user_color, gen_color)
+
                 combined_hints = torch.cat([combined_color, combined_mask], dim=1)
             else:
                 combined_hints = gen_hints
 
-            # Робимо інференс з об'єднаними підказками
             variant_pred = self(l_channel, combined_hints)
             variants.append(variant_pred)
             

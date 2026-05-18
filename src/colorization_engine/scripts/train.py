@@ -58,8 +58,8 @@ def train(config: TrainConfig):
     if config.training.do_save:
         checkpoint_best = ModelCheckpoint(
             dirpath=to_absolute_path("checkpoints"),
-            filename=f"{config.model.model_name}-best-{{epoch:02d}}-{{step}}-{{val_loss_auto:.4f}}-{{val_loss_hinted:.4f}}",
-            monitor="val_loss_hinted",
+            filename=f"{config.model.model_name}-best-{{epoch:02d}}-{{step}}-{{val_loss:.4f}}-{{val_loss_auto:.4f}}-{{val_loss_hinted:.4f}}",
+            monitor="val_loss",
             mode="min",
             save_top_k=3,
             save_last=True

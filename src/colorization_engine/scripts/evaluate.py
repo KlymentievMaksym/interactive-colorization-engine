@@ -157,10 +157,97 @@ def evaluate(config: EvaluateConfig):
                     comparison = np.concatenate((gray, pred_bgr, target_bgr), axis=1)
                     file_path = os.path.join(save_dir, f"result_{images_saved:04d}.jpg")
                     cv2.imwrite(file_path, comparison)
+                    file_path = os.path.join(save_dir, f"solo_result_{images_saved:04d}.jpg")
+                    cv2.imwrite(file_path, pred_bgr)
                     
                     images_saved += 1
                     
         print(f"[INFO] Saved {images_saved} images to {save_dir}")
+# @hydra.main(version_base=None, config_path="../configs", config_name="evaluate")
+# def evaluate(config: EvaluateConfig) -> None:
+#     test_paths = [to_absolute_path(p) if isinstance(p, str) else [to_absolute_path(p[0]), to_absolute_path(p[1])] for p in config.data.test] if config.data.test else None
+
+#     if not test_paths:
+#         raise ValueError("[ERROR] No test data paths provided in config.data.test")
+
+#     # Ініціалізація датасету
+#     datamodule = ColorizationDataModule(
+#         test_paths=test_paths,
+#         image_size=config.image_size, 
+#         min_hint_size=config.hints.min_hint_size, 
+#         max_hint_size=config.hints.max_hint_size, 
+#         num_hints_val=config.hints.num_hints_val, 
+#         patch_size_val=config.hints.patch_size_val,
+#         batch_size=config.dataloader.batch_size, 
+#         num_workers=config.dataloader.num_workers, 
+#         timeout=config.dataloader.timeout
+#     )
+#     datamodule.setup(stage="test")
+    
+#     device = torch.device(config.device if config.device else ("cuda" if torch.cuda.is_available() else "cpu"))
+    
+#     print(f"[INFO] Loading model {config.model.model_name}...")
+#     model = build_model_pipeline(
+#         model_name=config.model.model_name, 
+#         weights_path=config.model.weights, 
+#         model_params=config.model.model_params, 
+#         device=device
+#     )
+    
+#     # Використовуємо LitColorizer для сумісності препроцесингу
+#     lit_model = LitColorizer(model=model)
+#     lit_model.eval()
+#     lit_model.to(device)
+
+#     # ТИМЧАСОВО ВИМКНЕНО: Підрахунок метрик та профілювання
+#     # print("[INFO] Initializing PyTorch Lightning Trainer...")
+#     # trainer = pl.Trainer(...)
+#     # trainer.test(model=lit_model, datamodule=datamodule)
+#     # profile_model_performance(model, device, image_size=config.image_size)
+
+#     # Прямий інференс для збереження зображень
+#     if config.save_number > 0:
+#         print("[INFO] Generating and saving evaluation images only...")
+#         save_dir = Path(to_absolute_path(config.output_dir)) / config.model.model_name
+#         save_dir.mkdir(parents=True, exist_ok=True)
+        
+#         images_saved = 0
+        
+#         # Використовуємо torch.inference_mode() замість no_grad() для кращої оптимізації VRAM
+#         with torch.inference_mode():
+#             for batch in datamodule.test_dataloader(): # type: ignore
+#                 if images_saved >= config.save_number:
+#                     break
+                    
+#                 l_tensor = batch["input"].to(device)
+#                 ab_target = batch["target"].to(device)
+#                 hints = batch.get("hints", None)
+#                 if hints is not None:
+#                     hints = hints.to(device)
+                    
+#                 # Форвард пас
+#                 ab_pred = lit_model(l_tensor, hints)
+                
+#                 # Повернення в RGB
+#                 rgb_pred = kornia_lab_to_rgb(l_tensor, ab_pred)
+                
+#                 # Оптимізація: розраховуємо лише те, що будемо зберігати (pred_bgr)
+#                 rgb_pred_uint8 = (rgb_pred * 255).clamp(0, 255).to(torch.uint8).cpu().numpy()
+                
+#                 for i in range(l_tensor.size(0)):
+#                     if images_saved >= config.save_number:
+#                         break
+                        
+#                     # Конвертація RGB -> BGR для OpenCV
+#                     pred_bgr = cv2.cvtColor(rgb_pred_uint8[i].transpose(1, 2, 0), cv2.COLOR_RGB2BGR)
+                    
+#                     # Зберігаємо ВИКЛЮЧНО згенерований результат
+#                     file_path = os.path.join(save_dir, f"solo_result_{images_saved:04d}.jpg")
+#                     cv2.imwrite(file_path, pred_bgr)
+                    
+#                     images_saved += 1
+                    
+#         print(f"[INFO] Successfully saved {images_saved} images to {save_dir}")
 
 
 if __name__ == "__main__":
